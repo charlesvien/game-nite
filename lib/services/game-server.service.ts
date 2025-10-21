@@ -5,6 +5,7 @@ import type { IRailwayRepository } from '../repositories/railway.repository.inte
 import { Game } from '../domain/game';
 import { RailwayServiceModel } from '../domain/service';
 import { TemplateNotFoundError, ServiceCreationError } from '../errors/railway-errors';
+import { getGameCatalogService } from '../di/container';
 
 @injectable()
 export class GameServerService {
@@ -13,7 +14,6 @@ export class GameServerService {
   async listServers(gameId: string): Promise<RailwayServiceModel[]> {
     const allServices = await this.railwayRepository.getServices();
 
-    const { getGameCatalogService } = await import('../di/container');
     const gameCatalog = getGameCatalogService();
     const game = gameCatalog.getGameById(gameId);
 
@@ -33,16 +33,15 @@ export class GameServerService {
       throw new TemplateNotFoundError(game.id);
     }
 
-    const uniqueName = this.generateUniqueName(serverName, game.id);
-
     try {
       return await this.railwayRepository.createService({
-        name: uniqueName,
+        name: serverName,
         variables: game.getEnvironmentVariablesWithPort(),
-        tcpProxyApplicationPort: game.defaultPort,
         source: {
           image: game.dockerImage,
         },
+        tcpProxyApplicationPort: game.defaultPort,
+        volumeMountPath: game.volumeMountPath,
       });
     } catch (error) {
       if (error instanceof ServiceCreationError) throw error;
@@ -62,11 +61,5 @@ export class GameServerService {
 
   async getServerById(serviceId: string): Promise<RailwayServiceModel | null> {
     return await this.railwayRepository.getServiceById(serviceId);
-  }
-
-  private generateUniqueName(baseName: string, gameId: string): string {
-    const timestamp = Date.now();
-    const sanitizedName = baseName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-    return `${gameId}-${sanitizedName}-${timestamp}`;
   }
 }

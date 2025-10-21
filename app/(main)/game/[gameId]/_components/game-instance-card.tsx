@@ -29,13 +29,14 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
   const router = useRouter();
   const [isRestarting, setIsRestarting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deletionStartTime, setDeletionStartTime] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
 
   useEffect(() => {
     const isTransitionalState = service.deploymentStatus &&
       ['BUILDING', 'DEPLOYING', 'INITIALIZING'].includes(service.deploymentStatus.toUpperCase());
 
-    if (!isTransitionalState) {
+    if (!isTransitionalState && !isDeleting) {
       return;
     }
 
@@ -44,13 +45,13 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
     }, 1000);
 
     return () => clearInterval(displayInterval);
-  }, [service.deploymentStatus]);
+  }, [service.deploymentStatus, isDeleting]);
 
   useEffect(() => {
     const isTransitionalState = service.deploymentStatus &&
       ['BUILDING', 'DEPLOYING', 'INITIALIZING'].includes(service.deploymentStatus.toUpperCase());
 
-    if (!isTransitionalState) {
+    if (!isTransitionalState && !isDeleting) {
       return;
     }
 
@@ -59,13 +60,23 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
     }, 5000);
 
     return () => clearInterval(dataInterval);
-  }, [service.deploymentStatus, router]);
+  }, [service.deploymentStatus, isDeleting, router]);
 
   function getStatusDisplay(
     deploymentStatus?: string,
     statusUpdatedAt?: string,
-    now: number = Date.now()
+    now: number = Date.now(),
+    deletingState: boolean = false,
+    deletingStartTime: number | null = null
   ): { label: string; color: string } {
+    if (deletingState && deletingStartTime) {
+      const elapsed = Math.floor((now - deletingStartTime) / 1000);
+      const min = Math.floor(elapsed / 60);
+      const sec = elapsed % 60;
+      const timeStr = ` (${min}:${sec.toString().padStart(2, '0')})`;
+      return { label: `Deleting${timeStr}`, color: 'bg-red-500 animate-pulse' };
+    }
+
     if (!deploymentStatus) {
       return { label: 'Unknown', color: 'bg-gray-500' };
     }
@@ -120,18 +131,21 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
     }
 
     setIsDeleting(true);
+    setDeletionStartTime(Date.now());
     try {
       const result = await deleteServerAction(service.id);
       if (result.success) {
-        toast.success('Server deleted');
+        toast.success('Server is being deleted...');
         router.refresh();
       } else {
         toast.error(result.error || 'Failed to delete server');
+        setIsDeleting(false);
+        setDeletionStartTime(null);
       }
     } catch {
       toast.error('Failed to delete server');
-    } finally {
       setIsDeleting(false);
+      setDeletionStartTime(null);
     }
   }
 
@@ -153,13 +167,14 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
           <DropdownMenuTrigger asChild>
             <Button
               size="sm"
+              disabled={isDeleting}
               className="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border-0"
             >
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleRestart} disabled={isRestarting}>
+            <DropdownMenuItem onClick={handleRestart} disabled={isRestarting || isDeleting}>
               <RefreshCw
                 className={`h-4 w-4 mr-2 ${isRestarting ? 'animate-spin' : ''}`}
               />
@@ -180,8 +195,8 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm">
-            <div className={`h-2 w-2 rounded-full ${getStatusDisplay(service.deploymentStatus, service.statusUpdatedAt, currentTime).color}`} />
-            <span className="text-slate-300">{getStatusDisplay(service.deploymentStatus, service.statusUpdatedAt, currentTime).label}</span>
+            <div className={`h-2 w-2 rounded-full ${getStatusDisplay(service.deploymentStatus, service.statusUpdatedAt, currentTime, isDeleting, deletionStartTime).color}`} />
+            <span className="text-slate-300">{getStatusDisplay(service.deploymentStatus, service.statusUpdatedAt, currentTime, isDeleting, deletionStartTime).label}</span>
           </div>
         </div>
 
@@ -192,17 +207,28 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
         <div className="grid grid-cols-2 gap-2">
           <Button
             onClick={handleCopyLink}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
+            disabled={isDeleting}
+            className="bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <LinkIcon className="h-4 w-4 mr-2" />
             Copy Link
           </Button>
-          <Button asChild className="bg-slate-700 hover:bg-slate-600 text-white border-0">
-            <Link href={`/share/${service.id}`} target="_blank" rel="noopener noreferrer">
+          {isDeleting ? (
+            <Button
+              disabled
+              className="bg-slate-700 text-white border-0 opacity-50 cursor-not-allowed"
+            >
               <ExternalLink className="h-4 w-4 mr-2" />
               Open
-            </Link>
-          </Button>
+            </Button>
+          ) : (
+            <Button asChild className="bg-slate-700 hover:bg-slate-600 text-white border-0">
+              <Link href={`/share/${service.id}`} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </div>

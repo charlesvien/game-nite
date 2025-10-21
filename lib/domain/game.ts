@@ -14,6 +14,7 @@ export class Game {
     public readonly dockerImage: string,
     public readonly environmentVariables: GameEnvironmentVariable[],
     public readonly color: string,
+    public readonly volumeMountPath?: string,
   ) {}
 
   hasDockerImage(): boolean {
@@ -47,6 +48,7 @@ export class Game {
     dockerImage?: string;
     environmentVariables?: GameEnvironmentVariable[];
     color: string;
+    volumeMountPath?: string;
   }): Game {
     return new Game(
       config.id,
@@ -57,6 +59,7 @@ export class Game {
       config.dockerImage || '',
       config.environmentVariables || [],
       config.color,
+      config.volumeMountPath,
     );
   }
 }

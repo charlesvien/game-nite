@@ -10,6 +10,7 @@ export interface CreateServiceOptions {
   source?: ServiceSource;
   variables?: Record<string, string>;
   tcpProxyApplicationPort?: number;
+  volumeMountPath?: string;
 }
 
 export interface IRailwayServiceReader {
@@ -21,7 +22,6 @@ export interface IRailwayServiceWriter {
   createService(options: CreateServiceOptions): Promise<RailwayServiceModel>;
   deleteService(serviceId: string): Promise<void>;
   restartService(serviceId: string): Promise<void>;
-  upsertVariables(serviceId: string, variables: Record<string, string>): Promise<void>;
 }
 
 export interface IRailwayRepository

@@ -13,6 +13,7 @@ export interface GameConfig {
   dockerImage?: string;
   environmentVariables?: GameEnvironmentVariable[];
   color: string;
+  volumeMountPath?: string;
 }
 
 export const GAMES: Record<string, GameConfig> = {
@@ -29,6 +30,7 @@ export const GAMES: Record<string, GameConfig> = {
       { key: 'VERSION', value: 'LATEST', description: 'Minecraft version' },
     ],
     color: 'bg-green-600',
+    volumeMountPath: '/data',
   },
   rust: {
     id: 'rust',
@@ -50,6 +52,7 @@ export const GAMES: Record<string, GameConfig> = {
       { key: 'RUST_SERVER_MAXPLAYERS', value: '50', description: 'Max players' },
     ],
     color: 'bg-orange-600',
+    volumeMountPath: '/steamcmd/rust',
   },
   factorio: {
     id: 'factorio',
@@ -66,6 +69,7 @@ export const GAMES: Record<string, GameConfig> = {
       },
     ],
     color: 'bg-yellow-600',
+    volumeMountPath: '/factorio',
   },
   ark: {
     id: 'ark',
@@ -82,6 +86,7 @@ export const GAMES: Record<string, GameConfig> = {
       { key: 'MAX_PLAYERS', value: '70', description: 'Max players' },
     ],
     color: 'bg-blue-600',
+    volumeMountPath: '/ark',
   },
 };
 

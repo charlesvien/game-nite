@@ -37,7 +37,7 @@ const GET_PROJECT_QUERY = gql`
 `;
 
 const CREATE_SERVICE_MUTATION = gql`
-  mutation ServiceCreate(
+  mutation CreateService(
     $name: String!
     $projectId: String!
     $environmentId: String!
@@ -57,6 +57,9 @@ const CREATE_SERVICE_MUTATION = gql`
       name
       createdAt
       updatedAt
+      project {
+        name
+      }
     }
   }
 `;
@@ -81,20 +84,73 @@ const UPSERT_VARIABLES_MUTATION = gql`
   }
 `;
 
-const UPDATE_SERVICE_MUTATION = gql`
-  mutation ServiceUpdate($id: String!, $tcpProxyApplicationPort: Int) {
-    serviceUpdate(id: $id, input: { tcpProxyApplicationPort: $tcpProxyApplicationPort })
+const CREATE_TCP_PROXY_MUTATION = gql`
+  mutation CreateTcpProxy(
+    $environmentId: String!,
+    $serviceId: String!,
+    $applicationPort: Int!
+  ) {
+    tcpProxyCreate(input: {
+      applicationPort: $applicationPort, 
+      environmentId: $environmentId, 
+      serviceId: $serviceId
+    }) {
+      applicationPort
+      domain
+      proxyPort
+    }
+  }
+`;
+
+const CREATE_VOLUME_MUTATION = gql`
+  mutation CreateVolume(
+    $environmentId: String!,
+    $projectId: String!,
+    $mountPath: String!,
+    $serviceId: String!
+  ) {
+    volumeCreate(input: {
+      environmentId: $environmentId,
+      projectId: $projectId,
+      mountPath: $mountPath,
+      serviceId: $serviceId
+    }) {
+      id
+      name
+    }
+  }
+`;
+
+const GET_SERVICE_VOLUMES_QUERY = gql`
+  query GetServiceVolumes($serviceId: String!, $projectId: String!) {
+    service(id: $serviceId) {
+      id
+      volumeInstances(projectId: $projectId) {
+        edges {
+          node {
+            id
+            volumeId
+          }
+        }
+      }
+    }
+  }
+`;
+
+const DELETE_VOLUME_MUTATION = gql`
+  mutation DeleteVolume($id: String!) {
+    volumeDelete(id: $id)
   }
 `;
 
 const DELETE_SERVICE_MUTATION = gql`
-  mutation ServiceDelete($id: String!) {
+  mutation DeleteService($id: String!) {
     serviceDelete(id: $id)
   }
 `;
 
 const RESTART_SERVICE_MUTATION = gql`
-  mutation ServiceInstanceRedeploy($serviceId: String!, $environmentId: String!) {
+  mutation RestartService($serviceId: String!, $environmentId: String!) {
     serviceInstanceRedeploy(serviceId: $serviceId, environmentId: $environmentId)
   }
 `;
@@ -178,12 +234,28 @@ export class RailwayRepository implements IRailwayRepository {
 
   async createService(options: CreateServiceOptions): Promise<RailwayServiceModel> {
     try {
+      const existingServices = await this.getServices();
+      const nameExists = existingServices.some(
+        (service) => service.name.toLowerCase() === options.name.toLowerCase()
+      );
+
+      if (nameExists) {
+        throw new ServiceCreationError(
+          `A service with the name "${options.name}" already exists`
+        );
+      }
+
+      console.log('[RailwayRepository] Service name is available, proceeding with creation');
+
       const { data } = await this.client.mutate<{
         serviceCreate: {
           id: string;
           name: string;
           createdAt: string;
           updatedAt: string;
+          project: {
+            name: string;
+          };
         };
       }>({
         mutation: CREATE_SERVICE_MUTATION,
@@ -201,23 +273,56 @@ export class RailwayRepository implements IRailwayRepository {
       }
 
       const serviceId = data.serviceCreate.id;
+      console.log('[RailwayRepository] Service created successfully:', serviceId);
 
       if (options.tcpProxyApplicationPort) {
-        await this.client.mutate({
-          mutation: UPDATE_SERVICE_MUTATION,
-          variables: {
-            id: serviceId,
-            tcpProxyApplicationPort: options.tcpProxyApplicationPort,
-          },
+        console.log('[RailwayRepository] Creating TCP proxy with port:', options.tcpProxyApplicationPort);
+        try {
+          await this.client.mutate({
+            mutation: CREATE_TCP_PROXY_MUTATION,
+            variables: {
+              environmentId: this.environmentId,
+              serviceId: serviceId,
+              applicationPort: options.tcpProxyApplicationPort,
+            },
+          });
+          console.log('[RailwayRepository] TCP proxy created successfully');
+        } catch (updateError) {
+          console.warn('[RailwayRepository] Could not auto-configure TCP proxy port (may need manual configuration):', updateError);
+        }
+      }
+
+      if (options.volumeMountPath) {
+        console.log('[RailwayRepository] Creating volume with:', {
+          environmentId: this.environmentId,
+          projectId: this.projectId,
+          mountPath: options.volumeMountPath,
+          serviceId: serviceId,
         });
+
+        try {
+          await this.client.mutate({
+            mutation: CREATE_VOLUME_MUTATION,
+            variables: {
+              environmentId: this.environmentId,
+              projectId: this.projectId,
+              mountPath: options.volumeMountPath,
+              serviceId: serviceId,
+            },
+          });
+          console.log('[RailwayRepository] Volume created successfully');
+        } catch (volumeError) {
+          console.warn('[RailwayRepository] Could not auto-create volume (may need manual configuration):', volumeError);
+        }
       }
 
       return RailwayServiceModel.fromRailwayData({
         ...data.serviceCreate,
         projectId: this.projectId,
-        projectName: '',
+        projectName: data.serviceCreate.project.name,
       });
     } catch (error) {
+      console.error('[RailwayRepository] Error in createService:', error);
       if (error instanceof ServiceCreationError) throw error;
       throw new ServiceCreationError(
         error instanceof Error ? error.message : 'Unknown error',
@@ -225,39 +330,58 @@ export class RailwayRepository implements IRailwayRepository {
     }
   }
 
-  async upsertVariables(
-    serviceId: string,
-    variables: Record<string, string>,
-  ): Promise<void> {
-    try {
-      for (const [name, value] of Object.entries(variables)) {
-        await this.client.mutate({
-          mutation: UPSERT_VARIABLES_MUTATION,
-          variables: {
-            projectId: this.projectId,
-            environmentId: this.environmentId,
-            serviceId,
-            name,
-            value,
-          },
-        });
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      throw new RailwayError(
-        `Failed to upsert variables: ${message}`,
-        'VARIABLE_UPSERT_FAILED',
-      );
-    }
-  }
-
   async deleteService(serviceId: string): Promise<void> {
     try {
-      await this.client.mutate({
+      console.log(`[RailwayRepository] Attempting to delete service ${serviceId}`);
+
+      try {
+        const volumesData = await this.client.query<{
+          service: {
+            id: string;
+            volumeInstances: {
+              edges: Array<{
+                node: {
+                  id: string;
+                  volumeId: string;
+                };
+              }>;
+            };
+          };
+        }>({
+          query: GET_SERVICE_VOLUMES_QUERY,
+          variables: {
+            serviceId,
+            projectId: this.projectId,
+          },
+          fetchPolicy: 'no-cache',
+        });
+
+        const volumes = volumesData?.data?.service?.volumeInstances?.edges || [];
+        console.log(`[RailwayRepository] Found ${volumes.length} volumes for service ${serviceId}`);
+
+        for (const volumeEdge of volumes) {
+          try {
+            await this.client.mutate({
+              mutation: DELETE_VOLUME_MUTATION,
+              variables: { id: volumeEdge.node.volumeId },
+            });
+            console.log(`[RailwayRepository] Deleted volume ${volumeEdge.node.volumeId}`);
+          } catch (volumeError) {
+            console.error(`[RailwayRepository] Failed to delete volume ${volumeEdge.node.volumeId}:`, volumeError);
+          }
+        }
+      } catch (volumeQueryError) {
+        console.warn(`[RailwayRepository] Could not query/delete volumes, continuing with service deletion:`, volumeQueryError);
+      }
+
+      const result = await this.client.mutate({
         mutation: DELETE_SERVICE_MUTATION,
         variables: { id: serviceId },
       });
+
+      console.log(`[RailwayRepository] Deleted service ${serviceId}`, result);
     } catch (error) {
+      console.error('[RailwayRepository] Error deleting service:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
       throw new RailwayError(`Failed to delete service: ${message}`, 'DELETE_FAILED');
     }

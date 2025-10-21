@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Loader2, Plus } from 'lucide-react';
+import { createServerAction } from '@/actions/game-server.actions';
 
 interface CreateServerFormProps {
   gameId: string;
@@ -13,7 +14,21 @@ interface CreateServerFormProps {
 export default function CreateServerForm({ gameId }: CreateServerFormProps) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
+  const [creationStartTime, setCreationStartTime] = useState<number | null>(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
   const [serverName, setServerName] = useState('');
+
+  useEffect(() => {
+    if (!isCreating) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isCreating]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,9 +38,11 @@ export default function CreateServerForm({ gameId }: CreateServerFormProps) {
       return;
     }
 
+    const now = Date.now();
     setIsCreating(true);
+    setCreationStartTime(now);
+    setCurrentTime(now);
     try {
-      const { createServerAction } = await import('@/actions/game-server.actions');
       const result = await createServerAction(gameId, serverName);
 
       if (result.success) {
@@ -38,7 +55,22 @@ export default function CreateServerForm({ gameId }: CreateServerFormProps) {
       toast.error('Failed to create server');
     } finally {
       setIsCreating(false);
+      setCreationStartTime(null);
     }
+  }
+
+  function getCreatingLabel(): string {
+    if (!isCreating || !creationStartTime) {
+      return 'Creating...';
+    }
+
+    const elapsed = Math.floor((currentTime - creationStartTime) / 1000);
+    if (elapsed < 0) {
+      return 'Creating (0:00)';
+    }
+    const min = Math.floor(elapsed / 60);
+    const sec = elapsed % 60;
+    return `Creating (${min}:${sec.toString().padStart(2, '0')})`;
   }
 
   return (
@@ -70,7 +102,7 @@ export default function CreateServerForm({ gameId }: CreateServerFormProps) {
           {isCreating ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Creating...
+              {getCreatingLabel()}
             </>
           ) : (
             <>
