@@ -4,17 +4,17 @@ One-click game server provisioning for your frens. Instantly deploy and manage g
 
 ## Features
 
-- **🚀 Instant Deployment** - One-click server creation via Railway's API
-- **🎯 Multiple Games** - Support for Minecraft, Rust, Factorio, and ARK: Survival Evolved
-- **⚡ Quick Management** - Restart, delete, and monitor servers in real-time
-- **🔗 Easy Sharing** - Generate shareable links with connection details
+- **Instant Deployment** - One-click server creation via Railway's API
+- **Multiple Games** - Supports Minecraft, Rust, Factorio, ARK: Survival Evolved, and any other game server that can be containerized.
+- **Quick Management** - Restart, delete, and monitor servers in real-time
+- **Easy Sharing** - Generate shareable links with connection details
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 20+
 - pnpm
+- Node.js 20+
 - Railway account with API token
 
 ### Installation
@@ -22,7 +22,7 @@ One-click game server provisioning for your frens. Instantly deploy and manage g
 1. Clone the repository:
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/charlesvien/game-nite
 cd game-nite
 ```
 

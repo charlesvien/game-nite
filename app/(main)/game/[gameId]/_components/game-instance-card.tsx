@@ -29,8 +29,9 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
   const router = useRouter();
   const [isRestarting, setIsRestarting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [, forceUpdate] = useState(0);
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
+  // Update current time every second for smooth timer display
   useEffect(() => {
     const isTransitionalState = service.deploymentStatus &&
       ['BUILDING', 'DEPLOYING', 'INITIALIZING'].includes(service.deploymentStatus.toUpperCase());
@@ -40,12 +41,13 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
     }
 
     const displayInterval = setInterval(() => {
-      forceUpdate(prev => prev + 1);
+      setCurrentTime(Date.now());
     }, 1000);
 
     return () => clearInterval(displayInterval);
   }, [service.deploymentStatus]);
 
+  // Refresh data from server every 5 seconds for transitional states
   useEffect(() => {
     const isTransitionalState = service.deploymentStatus &&
       ['BUILDING', 'DEPLOYING', 'INITIALIZING'].includes(service.deploymentStatus.toUpperCase());
@@ -63,7 +65,8 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
 
   function getStatusDisplay(
     deploymentStatus?: string,
-    statusUpdatedAt?: string
+    statusUpdatedAt?: string,
+    now: number = Date.now()
   ): { label: string; color: string } {
     if (!deploymentStatus) {
       return { label: 'Unknown', color: 'bg-gray-500' };
@@ -74,7 +77,7 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
       if (statusUpdatedAt) {
         const date = new Date(statusUpdatedAt);
         if (!isNaN(date.getTime())) {
-          elapsed = Math.floor((Date.now() - date.getTime()) / 1000);
+          elapsed = Math.floor((now - date.getTime()) / 1000);
         }
       }
       const min = Math.floor(elapsed / 60);
@@ -179,8 +182,8 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm">
-            <div className={`h-2 w-2 rounded-full ${getStatusDisplay(service.deploymentStatus, service.statusUpdatedAt).color}`} />
-            <span className="text-slate-300">{getStatusDisplay(service.deploymentStatus, service.statusUpdatedAt).label}</span>
+            <div className={`h-2 w-2 rounded-full ${getStatusDisplay(service.deploymentStatus, service.statusUpdatedAt, currentTime).color}`} />
+            <span className="text-slate-300">{getStatusDisplay(service.deploymentStatus, service.statusUpdatedAt, currentTime).label}</span>
           </div>
         </div>
 
