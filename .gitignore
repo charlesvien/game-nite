@@ -1,0 +1,39 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Dependency directories and files
+/node_modules
+/.pnp
+.pnp.js
+
+# Build output
+/build
+/.next/
+/out/
+
+# Testing
+/coverage
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment variable files
+.env*
+.env*.local
+.dev.vars
+!.env.example
+
+# Vercel and deployment
+.vercel
+.open-next
+
+# Debug and log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Miscellaneous
+.DS_Store
+*.pem
+.worker-next
