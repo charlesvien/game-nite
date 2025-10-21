@@ -31,7 +31,6 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentTime, setCurrentTime] = useState(Date.now());
 
-  // Update current time every second for smooth timer display
   useEffect(() => {
     const isTransitionalState = service.deploymentStatus &&
       ['BUILDING', 'DEPLOYING', 'INITIALIZING'].includes(service.deploymentStatus.toUpperCase());
@@ -47,7 +46,6 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
     return () => clearInterval(displayInterval);
   }, [service.deploymentStatus]);
 
-  // Refresh data from server every 5 seconds for transitional states
   useEffect(() => {
     const isTransitionalState = service.deploymentStatus &&
       ['BUILDING', 'DEPLOYING', 'INITIALIZING'].includes(service.deploymentStatus.toUpperCase());

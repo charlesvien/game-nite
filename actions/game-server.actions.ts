@@ -30,10 +30,8 @@ export async function listServersAction(
   gameId: string,
 ): Promise<ActionResult<SerializedService[]>> {
   try {
-    console.log('[listServersAction] Fetching servers for gameId:', gameId);
     const gameServer = getGameServerService();
     const services = await gameServer.listServers(gameId);
-    console.log('[listServersAction] Found services:', services.length);
 
     const serializedServices = services.map((service) => ({
       id: service.id,

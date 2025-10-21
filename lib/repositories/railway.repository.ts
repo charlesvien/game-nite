@@ -109,7 +109,6 @@ export class RailwayRepository implements IRailwayRepository {
 
   async getServices(): Promise<RailwayServiceModel[]> {
     try {
-      console.log('[RailwayRepository] Fetching services for projectId:', this.projectId);
       const { data } = await this.client.query<{
         project: {
           id: string;
@@ -147,8 +146,6 @@ export class RailwayRepository implements IRailwayRepository {
         console.error('[RailwayRepository] No project data returned');
         return [];
       }
-
-      console.log('[RailwayRepository] Successfully fetched', data.project.services.edges.length, 'services');
 
       return data.project.services.edges.map((edge) => {
         const deploymentStatus: string | undefined = edge.node.deployments?.edges?.[0]?.node?.status;

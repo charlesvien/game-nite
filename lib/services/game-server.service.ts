@@ -12,24 +12,18 @@ export class GameServerService {
 
   async listServers(gameId: string): Promise<RailwayServiceModel[]> {
     const allServices = await this.railwayRepository.getServices();
-    console.log('[GameServerService] Total services from Railway:', allServices.length);
-    console.log('[GameServerService] Services:', allServices.map(s =>
-      `{id: ${s.id}, name: ${s.name}, imageName: ${s.imageName}}`
-    ));
 
     const { getGameCatalogService } = await import('../di/container');
     const gameCatalog = getGameCatalogService();
     const game = gameCatalog.getGameById(gameId);
 
     if (!game) {
-      console.log('[GameServerService] Game not found:', gameId);
       return [];
     }
 
     const filtered = allServices.filter((service) =>
       service.imageName === game.dockerImage
     );
-    console.log('[GameServerService] Filtered services for gameId', gameId, 'with image', game.dockerImage, ':', filtered.length);
 
     return filtered;
   }
