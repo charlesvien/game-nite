@@ -11,7 +11,8 @@ import { IRailwayRepository } from '../repositories/railway.repository.interface
 const container = new Container();
 
 container.bind<IRailwayRepository>(TYPES.IRailwayRepository).toDynamicValue(() => {
-  return new RailwayRepository(getClient(), RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID);
+  const client = getClient();
+  return new RailwayRepository(client, RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID);
 }).inSingletonScope();
 
 container.bind<GameCatalogService>(TYPES.GameCatalogService).to(GameCatalogService).inSingletonScope();

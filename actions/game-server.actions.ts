@@ -22,6 +22,8 @@ export interface SerializedService {
   createdAt: string;
   updatedAt?: string;
   deploymentStatus?: string;
+  statusUpdatedAt?: string;
+  imageName?: string;
 }
 
 export async function listServersAction(
@@ -41,6 +43,8 @@ export async function listServersAction(
       createdAt: service.createdAt.toISOString(),
       updatedAt: service.updatedAt?.toISOString(),
       deploymentStatus: service.deploymentStatus,
+      statusUpdatedAt: service.statusUpdatedAt?.toISOString(),
+      imageName: service.imageName,
     }));
 
     return {

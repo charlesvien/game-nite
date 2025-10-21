@@ -17,13 +17,15 @@ const GET_PROJECT_QUERY = gql`
             name
             createdAt
             updatedAt
-            source {
-              image
-            }
             deployments {
               edges {
                 node {
+                  id
+                  environmentId
                   status
+                  statusUpdatedAt
+                  staticUrl
+                  meta
                 }
               }
             }
@@ -107,7 +109,7 @@ export class RailwayRepository implements IRailwayRepository {
 
   async getServices(): Promise<RailwayServiceModel[]> {
     try {
-      console.log('[RailwayRepository] Fetching services for projectId:', this.projectId, 'environmentId:', this.environmentId);
+      console.log('[RailwayRepository] Fetching services for projectId:', this.projectId);
       const { data } = await this.client.query<{
         project: {
           id: string;
@@ -119,13 +121,13 @@ export class RailwayRepository implements IRailwayRepository {
                 name: string;
                 createdAt: string;
                 updatedAt: string;
-                source?: {
-                  image?: string;
-                };
                 deployments: {
                   edges: Array<{
                     node: {
                       status: string;
+                      statusUpdatedAt: Date;
+                      staticUrl: string;
+                      meta: Record<string, unknown>;
                     };
                   }>;
                 };
@@ -137,7 +139,6 @@ export class RailwayRepository implements IRailwayRepository {
         query: GET_PROJECT_QUERY,
         variables: {
           projectId: this.projectId,
-          environmentId: this.environmentId,
         },
         fetchPolicy: 'no-cache',
       });
@@ -150,16 +151,20 @@ export class RailwayRepository implements IRailwayRepository {
       console.log('[RailwayRepository] Successfully fetched', data.project.services.edges.length, 'services');
 
       return data.project.services.edges.map((edge) => {
-        const deploymentStatus = edge.node.deployments?.edges?.[0]?.node?.status;
+        const deploymentStatus: string | undefined = edge.node.deployments?.edges?.[0]?.node?.status;
+        const statusUpdatedAt: Date | undefined = edge.node.deployments?.edges?.[0]?.node?.statusUpdatedAt;
+        const imageName: string | undefined = edge.node.deployments?.edges?.[0]?.node?.meta?.image as string | undefined;
         return RailwayServiceModel.fromRailwayData({
           ...edge.node,
           projectId: data.project.id,
           projectName: data.project.name,
           deploymentStatus: deploymentStatus,
-          sourceImage: edge.node.source?.image,
+          statusUpdatedAt: statusUpdatedAt,
+          imageName: imageName,
         });
       });
     } catch (error) {
+      console.error('[RailwayRepository] Error fetching services:', error);
       throw new RailwayError(
         `Failed to fetch services: ${
           error instanceof Error ? error.message : 'Unknown error'

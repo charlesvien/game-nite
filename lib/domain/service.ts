@@ -7,7 +7,8 @@ export class RailwayServiceModel {
     public readonly createdAt: Date,
     public readonly updatedAt?: Date,
     public readonly deploymentStatus?: string,
-    public readonly sourceImage?: string,
+    public readonly statusUpdatedAt?: Date,
+    public readonly imageName?: string,
   ) {}
 
   getGameType(): string {
@@ -47,7 +48,8 @@ export class RailwayServiceModel {
     projectId: string;
     projectName: string;
     deploymentStatus?: string;
-    sourceImage?: string;
+    statusUpdatedAt?: Date;
+    imageName?: string;
   }): RailwayServiceModel {
     return new RailwayServiceModel(
       data.id,
@@ -57,7 +59,8 @@ export class RailwayServiceModel {
       new Date(data.createdAt),
       data.updatedAt ? new Date(data.updatedAt) : undefined,
       data.deploymentStatus,
-      data.sourceImage,
+      data.statusUpdatedAt ? new Date(data.statusUpdatedAt) : undefined,
+      data.imageName,
     );
   }
 }

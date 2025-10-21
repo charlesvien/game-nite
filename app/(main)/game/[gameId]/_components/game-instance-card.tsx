@@ -29,6 +29,7 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
   const router = useRouter();
   const [isRestarting, setIsRestarting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [, forceUpdate] = useState(0);
 
   useEffect(() => {
     const isTransitionalState = service.deploymentStatus &&
@@ -38,25 +39,52 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
       return;
     }
 
-    const interval = setInterval(() => {
+    const displayInterval = setInterval(() => {
+      forceUpdate(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(displayInterval);
+  }, [service.deploymentStatus]);
+
+  useEffect(() => {
+    const isTransitionalState = service.deploymentStatus &&
+      ['BUILDING', 'DEPLOYING', 'INITIALIZING'].includes(service.deploymentStatus.toUpperCase());
+
+    if (!isTransitionalState) {
+      return;
+    }
+
+    const dataInterval = setInterval(() => {
       router.refresh();
     }, 5000);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(dataInterval);
   }, [service.deploymentStatus, router]);
 
-  function getStatusDisplay(deploymentStatus?: string): { label: string; color: string } {
+  function getStatusDisplay(
+    deploymentStatus?: string,
+    statusUpdatedAt?: string
+  ): { label: string; color: string } {
     if (!deploymentStatus) {
       return { label: 'Unknown', color: 'bg-gray-500' };
     }
-
-    switch (deploymentStatus.toUpperCase()) {
+    const upper = deploymentStatus.toUpperCase();
+    if (['BUILDING', 'DEPLOYING', 'INITIALIZING'].includes(upper)) {
+      let elapsed = 0;
+      if (statusUpdatedAt) {
+        const date = new Date(statusUpdatedAt);
+        if (!isNaN(date.getTime())) {
+          elapsed = Math.floor((Date.now() - date.getTime()) / 1000);
+        }
+      }
+      const min = Math.floor(elapsed / 60);
+      const sec = elapsed % 60;
+      const timeStr = ` (${min}:${sec.toString().padStart(2, '0')})`;
+      return { label: `Deploying${timeStr}`, color: 'bg-yellow-500' };
+    }
+    switch (upper) {
       case 'SUCCESS':
         return { label: 'Online', color: 'bg-green-500' };
-      case 'BUILDING':
-      case 'DEPLOYING':
-      case 'INITIALIZING':
-        return { label: 'Deploying', color: 'bg-yellow-500' };
       case 'CRASHED':
       case 'FAILED':
         return { label: 'Crashed', color: 'bg-red-500' };
@@ -66,6 +94,7 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
         return { label: deploymentStatus, color: 'bg-blue-500' };
     }
   }
+
 
   async function handleRestart() {
     setIsRestarting(true);
@@ -150,8 +179,8 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm">
-            <div className={`h-2 w-2 rounded-full ${getStatusDisplay(service.deploymentStatus).color}`} />
-            <span className="text-slate-300">{getStatusDisplay(service.deploymentStatus).label}</span>
+            <div className={`h-2 w-2 rounded-full ${getStatusDisplay(service.deploymentStatus, service.statusUpdatedAt).color}`} />
+            <span className="text-slate-300">{getStatusDisplay(service.deploymentStatus, service.statusUpdatedAt).label}</span>
           </div>
         </div>
 
