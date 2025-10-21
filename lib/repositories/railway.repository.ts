@@ -64,37 +64,19 @@ const CREATE_SERVICE_MUTATION = gql`
   }
 `;
 
-const UPSERT_VARIABLES_MUTATION = gql`
-  mutation VariableUpsert(
-    $projectId: String!
-    $environmentId: String!
-    $serviceId: String!
-    $name: String!
-    $value: String!
-  ) {
-    variableUpsert(
-      input: {
-        projectId: $projectId
-        environmentId: $environmentId
-        serviceId: $serviceId
-        name: $name
-        value: $value
-      }
-    )
-  }
-`;
-
 const CREATE_TCP_PROXY_MUTATION = gql`
   mutation CreateTcpProxy(
-    $environmentId: String!,
-    $serviceId: String!,
+    $environmentId: String!
+    $serviceId: String!
     $applicationPort: Int!
   ) {
-    tcpProxyCreate(input: {
-      applicationPort: $applicationPort, 
-      environmentId: $environmentId, 
-      serviceId: $serviceId
-    }) {
+    tcpProxyCreate(
+      input: {
+        applicationPort: $applicationPort
+        environmentId: $environmentId
+        serviceId: $serviceId
+      }
+    ) {
       applicationPort
       domain
       proxyPort
@@ -104,17 +86,19 @@ const CREATE_TCP_PROXY_MUTATION = gql`
 
 const CREATE_VOLUME_MUTATION = gql`
   mutation CreateVolume(
-    $environmentId: String!,
-    $projectId: String!,
-    $mountPath: String!,
+    $environmentId: String!
+    $projectId: String!
+    $mountPath: String!
     $serviceId: String!
   ) {
-    volumeCreate(input: {
-      environmentId: $environmentId,
-      projectId: $projectId,
-      mountPath: $mountPath,
-      serviceId: $serviceId
-    }) {
+    volumeCreate(
+      input: {
+        environmentId: $environmentId
+        projectId: $projectId
+        mountPath: $mountPath
+        serviceId: $serviceId
+      }
+    ) {
       id
       name
     }
@@ -204,9 +188,12 @@ export class RailwayRepository implements IRailwayRepository {
       }
 
       return data.project.services.edges.map((edge) => {
-        const deploymentStatus: string | undefined = edge.node.deployments?.edges?.[0]?.node?.status;
-        const statusUpdatedAt: Date | undefined = edge.node.deployments?.edges?.[0]?.node?.statusUpdatedAt;
-        const imageName: string | undefined = edge.node.deployments?.edges?.[0]?.node?.meta?.image as string | undefined;
+        const deploymentStatus: string | undefined =
+          edge.node.deployments?.edges?.[0]?.node?.status;
+        const statusUpdatedAt: Date | undefined =
+          edge.node.deployments?.edges?.[0]?.node?.statusUpdatedAt;
+        const imageName: string | undefined = edge.node.deployments?.edges?.[0]?.node
+          ?.meta?.image as string | undefined;
         return RailwayServiceModel.fromRailwayData({
           ...edge.node,
           projectId: data.project.id,
@@ -222,7 +209,7 @@ export class RailwayRepository implements IRailwayRepository {
         `Failed to fetch services: ${
           error instanceof Error ? error.message : 'Unknown error'
         }`,
-        'FETCH_FAILED'
+        'FETCH_FAILED',
       );
     }
   }
@@ -236,16 +223,18 @@ export class RailwayRepository implements IRailwayRepository {
     try {
       const existingServices = await this.getServices();
       const nameExists = existingServices.some(
-        (service) => service.name.toLowerCase() === options.name.toLowerCase()
+        (service) => service.name.toLowerCase() === options.name.toLowerCase(),
       );
 
       if (nameExists) {
         throw new ServiceCreationError(
-          `A service with the name "${options.name}" already exists`
+          `A service with the name "${options.name}" already exists`,
         );
       }
 
-      console.log('[RailwayRepository] Service name is available, proceeding with creation');
+      console.log(
+        '[RailwayRepository] Service name is available, proceeding with creation',
+      );
 
       const { data } = await this.client.mutate<{
         serviceCreate: {
@@ -276,7 +265,10 @@ export class RailwayRepository implements IRailwayRepository {
       console.log('[RailwayRepository] Service created successfully:', serviceId);
 
       if (options.tcpProxyApplicationPort) {
-        console.log('[RailwayRepository] Creating TCP proxy with port:', options.tcpProxyApplicationPort);
+        console.log(
+          '[RailwayRepository] Creating TCP proxy with port:',
+          options.tcpProxyApplicationPort,
+        );
         try {
           await this.client.mutate({
             mutation: CREATE_TCP_PROXY_MUTATION,
@@ -288,7 +280,10 @@ export class RailwayRepository implements IRailwayRepository {
           });
           console.log('[RailwayRepository] TCP proxy created successfully');
         } catch (updateError) {
-          console.warn('[RailwayRepository] Could not auto-configure TCP proxy port (may need manual configuration):', updateError);
+          console.warn(
+            '[RailwayRepository] Could not auto-configure TCP proxy port (may need manual configuration):',
+            updateError,
+          );
         }
       }
 
@@ -312,7 +307,10 @@ export class RailwayRepository implements IRailwayRepository {
           });
           console.log('[RailwayRepository] Volume created successfully');
         } catch (volumeError) {
-          console.warn('[RailwayRepository] Could not auto-create volume (may need manual configuration):', volumeError);
+          console.warn(
+            '[RailwayRepository] Could not auto-create volume (may need manual configuration):',
+            volumeError,
+          );
         }
       }
 
@@ -357,7 +355,9 @@ export class RailwayRepository implements IRailwayRepository {
         });
 
         const volumes = volumesData?.data?.service?.volumeInstances?.edges || [];
-        console.log(`[RailwayRepository] Found ${volumes.length} volumes for service ${serviceId}`);
+        console.log(
+          `[RailwayRepository] Found ${volumes.length} volumes for service ${serviceId}`,
+        );
 
         for (const volumeEdge of volumes) {
           try {
@@ -367,11 +367,17 @@ export class RailwayRepository implements IRailwayRepository {
             });
             console.log(`[RailwayRepository] Deleted volume ${volumeEdge.node.volumeId}`);
           } catch (volumeError) {
-            console.error(`[RailwayRepository] Failed to delete volume ${volumeEdge.node.volumeId}:`, volumeError);
+            console.error(
+              `[RailwayRepository] Failed to delete volume ${volumeEdge.node.volumeId}:`,
+              volumeError,
+            );
           }
         }
       } catch (volumeQueryError) {
-        console.warn(`[RailwayRepository] Could not query/delete volumes, continuing with service deletion:`, volumeQueryError);
+        console.warn(
+          '[RailwayRepository] Could not query/delete volumes, continuing with service deletion:',
+          volumeQueryError,
+        );
       }
 
       const result = await this.client.mutate({

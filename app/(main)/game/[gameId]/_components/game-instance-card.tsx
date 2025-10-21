@@ -17,7 +17,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { restartServerAction, deleteServerAction, SerializedService } from '@/actions/game-server.actions';
+import {
+  restartServerAction,
+  deleteServerAction,
+  SerializedService,
+} from '@/actions/game-server.actions';
 import Link from 'next/link';
 
 interface GameInstanceCardProps {
@@ -33,8 +37,11 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
   const [currentTime, setCurrentTime] = useState(Date.now());
 
   useEffect(() => {
-    const isTransitionalState = service.deploymentStatus &&
-      ['BUILDING', 'DEPLOYING', 'INITIALIZING'].includes(service.deploymentStatus.toUpperCase());
+    const isTransitionalState =
+      service.deploymentStatus &&
+      ['BUILDING', 'DEPLOYING', 'INITIALIZING'].includes(
+        service.deploymentStatus.toUpperCase(),
+      );
 
     if (!isTransitionalState && !isDeleting) {
       return;
@@ -48,8 +55,11 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
   }, [service.deploymentStatus, isDeleting]);
 
   useEffect(() => {
-    const isTransitionalState = service.deploymentStatus &&
-      ['BUILDING', 'DEPLOYING', 'INITIALIZING'].includes(service.deploymentStatus.toUpperCase());
+    const isTransitionalState =
+      service.deploymentStatus &&
+      ['BUILDING', 'DEPLOYING', 'INITIALIZING'].includes(
+        service.deploymentStatus.toUpperCase(),
+      );
 
     if (!isTransitionalState && !isDeleting) {
       return;
@@ -67,7 +77,7 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
     statusUpdatedAt?: string,
     now: number = Date.now(),
     deletingState: boolean = false,
-    deletingStartTime: number | null = null
+    deletingStartTime: number | null = null,
   ): { label: string; color: string } {
     if (deletingState && deletingStartTime) {
       const elapsed = Math.floor((now - deletingStartTime) / 1000);
@@ -106,7 +116,6 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
         return { label: deploymentStatus, color: 'bg-blue-500' };
     }
   }
-
 
   async function handleRestart() {
     setIsRestarting(true);
@@ -174,7 +183,10 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleRestart} disabled={isRestarting || isDeleting}>
+            <DropdownMenuItem
+              onClick={handleRestart}
+              disabled={isRestarting || isDeleting}
+            >
               <RefreshCw
                 className={`h-4 w-4 mr-2 ${isRestarting ? 'animate-spin' : ''}`}
               />
@@ -195,8 +207,20 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm">
-            <div className={`h-2 w-2 rounded-full ${getStatusDisplay(service.deploymentStatus, service.statusUpdatedAt, currentTime, isDeleting, deletionStartTime).color}`} />
-            <span className="text-slate-300">{getStatusDisplay(service.deploymentStatus, service.statusUpdatedAt, currentTime, isDeleting, deletionStartTime).label}</span>
+            <div
+              className={`h-2 w-2 rounded-full ${getStatusDisplay(service.deploymentStatus, service.statusUpdatedAt, currentTime, isDeleting, deletionStartTime).color}`}
+            />
+            <span className="text-slate-300">
+              {
+                getStatusDisplay(
+                  service.deploymentStatus,
+                  service.statusUpdatedAt,
+                  currentTime,
+                  isDeleting,
+                  deletionStartTime,
+                ).label
+              }
+            </span>
           </div>
         </div>
 
@@ -222,8 +246,15 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
               Open
             </Button>
           ) : (
-            <Button asChild className="bg-slate-700 hover:bg-slate-600 text-white border-0">
-              <Link href={`/share/${service.id}`} target="_blank" rel="noopener noreferrer">
+            <Button
+              asChild
+              className="bg-slate-700 hover:bg-slate-600 text-white border-0"
+            >
+              <Link
+                href={`/share/${service.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Open
               </Link>

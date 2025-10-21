@@ -10,13 +10,22 @@ import { IRailwayRepository } from '../repositories/railway.repository.interface
 
 const container = new Container();
 
-container.bind<IRailwayRepository>(TYPES.IRailwayRepository).toDynamicValue(() => {
-  const client = getClient();
-  return new RailwayRepository(client, RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID);
-}).inSingletonScope();
+container
+  .bind<IRailwayRepository>(TYPES.IRailwayRepository)
+  .toDynamicValue(() => {
+    const client = getClient();
+    return new RailwayRepository(client, RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID);
+  })
+  .inSingletonScope();
 
-container.bind<GameCatalogService>(TYPES.GameCatalogService).to(GameCatalogService).inSingletonScope();
-container.bind<GameServerService>(TYPES.GameServerService).to(GameServerService).inSingletonScope();
+container
+  .bind<GameCatalogService>(TYPES.GameCatalogService)
+  .to(GameCatalogService)
+  .inSingletonScope();
+container
+  .bind<GameServerService>(TYPES.GameServerService)
+  .to(GameServerService)
+  .inSingletonScope();
 
 function getGameServerService(): GameServerService {
   return container.get<GameServerService>(TYPES.GameServerService);

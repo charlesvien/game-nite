@@ -46,7 +46,7 @@ export class RailwayServiceModel {
     createdAt: string;
     updatedAt: string;
     projectId: string;
-    projectName?: string;
+    projectName: string;
     deploymentStatus?: string;
     statusUpdatedAt?: Date;
     imageName?: string;

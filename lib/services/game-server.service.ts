@@ -9,7 +9,10 @@ import { getGameCatalogService } from '../di/container';
 
 @injectable()
 export class GameServerService {
-  constructor(@inject(TYPES.IRailwayRepository) private readonly railwayRepository: IRailwayRepository) {}
+  constructor(
+    @inject(TYPES.IRailwayRepository)
+    private readonly railwayRepository: IRailwayRepository,
+  ) {}
 
   async listServers(gameId: string): Promise<RailwayServiceModel[]> {
     const allServices = await this.railwayRepository.getServices();
@@ -21,8 +24,8 @@ export class GameServerService {
       return [];
     }
 
-    const filtered = allServices.filter((service) =>
-      service.imageName === game.dockerImage
+    const filtered = allServices.filter(
+      (service) => service.imageName === game.dockerImage,
     );
 
     return filtered;
