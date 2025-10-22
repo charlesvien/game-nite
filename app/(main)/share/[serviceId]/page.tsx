@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import CopyButton from './_components/copy-button';
-import { getGameConfig } from '@/lib/games';
+import { getGameConfigByDockerImage } from '@/lib/games';
 import { getGameServerService, getRailwayRepository } from '@/lib/di/container';
 
 interface PageProps {
@@ -20,8 +20,9 @@ export default async function SharePage({ params }: PageProps) {
     notFound();
   }
 
-  const gameType = foundServer.name.toLowerCase().split('-')[0] || 'game';
-  const gameConfig = getGameConfig(gameType);
+  const gameConfig = foundServer.imageName
+    ? getGameConfigByDockerImage(foundServer.imageName)
+    : undefined;
 
   const tcpProxies = await railwayRepository.getTcpProxies(
     foundServer.environmentId,
@@ -33,7 +34,7 @@ export default async function SharePage({ params }: PageProps) {
 
   const connectionDetails = {
     serverName: foundServer.name,
-    game: gameConfig?.name || gameType,
+    game: gameConfig?.name || 'Game Server',
     ip: tcpProxies[0].domain,
     port: tcpProxies[0].proxyPort.toString(),
     password: 'Generated when server starts',

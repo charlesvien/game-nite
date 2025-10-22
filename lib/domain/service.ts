@@ -1,3 +1,5 @@
+import { getGameConfigByDockerImage } from '../games';
+
 export interface TcpProxy {
   domain: string;
   proxyPort: number;
@@ -19,7 +21,12 @@ export class RailwayServiceModel {
   ) {}
 
   getGameType(): string {
-    return this.name.toLowerCase().split('-')[0] || 'game';
+    if (!this.imageName) {
+      return 'game';
+    }
+
+    const gameConfig = getGameConfigByDockerImage(this.imageName);
+    return gameConfig?.id || 'game';
   }
 
   getShareUrl(baseUrl: string): string {

@@ -355,13 +355,10 @@ export class RailwayRepository implements IRailwayRepository {
       }
 
       if (options.volumeMountPath) {
-        console.log('[RailwayRepository] Creating volume with:', {
-          environmentId: this.environmentId,
-          projectId: this.projectId,
-          mountPath: options.volumeMountPath,
-          serviceId: serviceId,
-        });
-
+        console.log(
+          '[RailwayRepository] Creating volume with path:',
+          options.volumeMountPath,
+        );
         try {
           await this.client.mutate({
             mutation: CREATE_VOLUME_MUTATION,

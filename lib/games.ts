@@ -93,3 +93,7 @@ export const GAMES: Record<string, GameConfig> = {
 export function getGameConfig(gameId: string): GameConfig | undefined {
   return GAMES[gameId];
 }
+
+export function getGameConfigByDockerImage(dockerImage: string): GameConfig | undefined {
+  return Object.values(GAMES).find((game) => game.dockerImage === dockerImage);
+}
