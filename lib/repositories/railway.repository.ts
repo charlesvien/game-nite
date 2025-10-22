@@ -5,6 +5,54 @@ import { IRailwayRepository, CreateServiceOptions } from './railway.repository.i
 import { RailwayServiceModel, TcpProxy } from '../domain/service';
 import { ServiceCreationError, RailwayError } from '../errors/railway-errors';
 
+// ====================
+// Service operations
+// ====================
+
+const CREATE_SERVICE_MUTATION = gql`
+  mutation CreateService(
+    $name: String!
+    $projectId: String!
+    $environmentId: String!
+    $source: ServiceSourceInput
+    $variables: EnvironmentVariables
+  ) {
+    serviceCreate(
+      input: {
+        name: $name
+        projectId: $projectId
+        environmentId: $environmentId
+        source: $source
+        variables: $variables
+      }
+    ) {
+      id
+      name
+      createdAt
+      updatedAt
+      project {
+        name
+      }
+    }
+  }
+`;
+
+const DELETE_SERVICE_MUTATION = gql`
+  mutation DeleteService($serviceId: String!) {
+    serviceDelete(id: $serviceId)
+  }
+`;
+
+const RESTART_SERVICE_MUTATION = gql`
+  mutation RestartService($serviceId: String!, $environmentId: String!) {
+    serviceInstanceRedeploy(serviceId: $serviceId, environmentId: $environmentId)
+  }
+`;
+
+// ====================
+// Project operations
+// ====================
+
 const GET_PROJECT_QUERY = gql`
   query GetProject($projectId: String!) {
     project(id: $projectId) {
@@ -36,33 +84,30 @@ const GET_PROJECT_QUERY = gql`
   }
 `;
 
-const CREATE_SERVICE_MUTATION = gql`
-  mutation CreateService(
-    $name: String!
-    $projectId: String!
-    $environmentId: String!
-    $source: ServiceSourceInput
-    $variables: EnvironmentVariables
-  ) {
-    serviceCreate(
-      input: {
-        name: $name
-        projectId: $projectId
-        environmentId: $environmentId
-        source: $source
-        variables: $variables
-      }
-    ) {
-      id
-      name
-      createdAt
-      updatedAt
-      project {
-        name
+const GET_PROJECT_VOLUMES_QUERY = gql`
+  query GetProjectVolumes($projectId: String!) {
+    project(id: $projectId) {
+      volumes {
+        edges {
+          node {
+            volumeInstances {
+              edges {
+                node {
+                  serviceId
+                  volumeId
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
 `;
+
+// ====================
+// TCP Proxy operations
+// ====================
 
 const CREATE_TCP_PROXY_MUTATION = gql`
   mutation CreateTcpProxy(
@@ -94,6 +139,10 @@ const GET_TCP_PROXIES_QUERY = gql`
   }
 `;
 
+// ====================
+// Volume operations
+// ====================
+
 const CREATE_VOLUME_MUTATION = gql`
   mutation CreateVolume(
     $environmentId: String!
@@ -115,42 +164,9 @@ const CREATE_VOLUME_MUTATION = gql`
   }
 `;
 
-const GET_PROJECT_VOLUMES_QUERY = gql`
-  query GetProjectVolumes($projectId: String!) {
-    project(id: $projectId) {
-      volumes {
-        edges {
-          node {
-            volumeInstances {
-              edges {
-                node {
-                  serviceId
-                  volumeId
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-`;
-
 const DELETE_VOLUME_MUTATION = gql`
   mutation DeleteVolume($volumeId: String!) {
     volumeDelete(volumeId: $volumeId)
-  }
-`;
-
-const DELETE_SERVICE_MUTATION = gql`
-  mutation DeleteService($serviceId: String!) {
-    serviceDelete(id: $serviceId)
-  }
-`;
-
-const RESTART_SERVICE_MUTATION = gql`
-  mutation RestartService($serviceId: String!, $environmentId: String!) {
-    serviceInstanceRedeploy(serviceId: $serviceId, environmentId: $environmentId)
   }
 `;
 
