@@ -5,11 +5,11 @@ export interface ServiceSource {
   repo?: string;
 }
 
-export interface CreateServiceOptions {
-  name: string;
-  source?: ServiceSource;
+export interface DeployTemplateOptions {
+  serviceName: string;
+  source: ServiceSource;
+  tcpProxyApplicationPort: number;
   variables?: Record<string, string>;
-  tcpProxyApplicationPort?: number;
   volumeMountPath?: string;
 }
 
@@ -17,10 +17,11 @@ export interface IRailwayServiceReader {
   getServices(): Promise<RailwayServiceModel[]>;
   getServiceById(serviceId: string): Promise<RailwayServiceModel | null>;
   getTcpProxies(environmentId: string, serviceId: string): Promise<TcpProxy[]>;
+  getWorkflowStatus(workflowId: string): Promise<{ status: string; error: string }>;
 }
 
 export interface IRailwayServiceWriter {
-  createService(options: CreateServiceOptions): Promise<RailwayServiceModel>;
+  deployTemplate(options: DeployTemplateOptions): Promise<string>;
   deleteService(serviceId: string): Promise<void>;
   restartService(serviceId: string): Promise<void>;
 }

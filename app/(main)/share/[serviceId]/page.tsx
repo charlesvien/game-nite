@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import CopyButton from './_components/copy-button';
-import { getGameConfigByDockerImage } from '@/lib/games';
+import { getGameConfigBySource } from '@/lib/games';
 import { getGameServerService, getRailwayRepository } from '@/lib/di/container';
 
 interface PageProps {
@@ -16,19 +16,20 @@ export default async function SharePage({ params }: PageProps) {
   const railwayRepository = getRailwayRepository();
 
   const foundServer = await gameServerService.getServerById(serviceId);
-  if (!foundServer) {
+  if (!foundServer || !foundServer.source) {
     notFound();
   }
-
-  const gameConfig = foundServer.imageName
-    ? getGameConfigByDockerImage(foundServer.imageName)
-    : undefined;
 
   const tcpProxies = await railwayRepository.getTcpProxies(
     foundServer.environmentId,
     serviceId,
   );
   if (!tcpProxies.length) {
+    notFound();
+  }
+
+  const gameConfig = getGameConfigBySource(foundServer.source);
+  if (!gameConfig) {
     notFound();
   }
 

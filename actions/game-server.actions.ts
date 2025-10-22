@@ -1,6 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { getGameServerService, getGameCatalogService } from '@/lib/di/container';
 import {
   RailwayError,
@@ -23,7 +22,10 @@ export interface SerializedService {
   updatedAt?: string;
   deploymentStatus?: string;
   statusUpdatedAt?: string;
-  imageName?: string;
+  source?: {
+    image?: string;
+    repo?: string;
+  };
 }
 
 export async function listServersAction(
@@ -42,7 +44,7 @@ export async function listServersAction(
       updatedAt: service.updatedAt?.toISOString(),
       deploymentStatus: service.deploymentStatus,
       statusUpdatedAt: service.statusUpdatedAt?.toISOString(),
-      imageName: service.imageName,
+      source: service.source,
     }));
 
     return {
@@ -61,7 +63,7 @@ export async function listServersAction(
 export async function createServerAction(
   gameId: string,
   serverName: string,
-): Promise<ActionResult<{ id: string; name: string }>> {
+): Promise<ActionResult<{ workflowId: string }>> {
   try {
     const gameCatalog = getGameCatalogService();
     const gameServer = getGameServerService();
@@ -71,15 +73,12 @@ export async function createServerAction(
       return { success: false, error: 'Game not found' };
     }
 
-    const service = await gameServer.createServer(game, serverName);
-
-    revalidatePath('/game/[gameId]', 'page');
+    const workflowId: string = await gameServer.deployTemplate(game, serverName);
 
     return {
       success: true,
       data: {
-        id: service.id,
-        name: service.name,
+        workflowId: workflowId,
       },
     };
   } catch (error) {
@@ -101,8 +100,6 @@ export async function restartServerAction(serviceId: string): Promise<ActionResu
     const gameServer = getGameServerService();
     await gameServer.restartServer(serviceId);
 
-    revalidatePath('/game/[gameId]', 'page');
-
     return { success: true };
   } catch (error) {
     if (error instanceof RailwayError) {
@@ -116,8 +113,6 @@ export async function deleteServerAction(serviceId: string): Promise<ActionResul
   try {
     const gameServer = getGameServerService();
     await gameServer.deleteServer(serviceId);
-
-    revalidatePath('/game/[gameId]', 'page');
 
     return { success: true };
   } catch (error) {

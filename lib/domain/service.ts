@@ -1,4 +1,5 @@
-import { getGameConfigByDockerImage } from '../games';
+import { getGameConfigBySource } from '../games';
+import { ServiceSource } from '../repositories/railway.repository.interface';
 
 export interface TcpProxy {
   domain: string;
@@ -10,6 +11,7 @@ export class RailwayServiceModel {
   constructor(
     public readonly id: string,
     public readonly name: string,
+    public readonly source: ServiceSource,
     public readonly projectId: string,
     public readonly projectName: string,
     public readonly environmentId: string,
@@ -17,15 +19,10 @@ export class RailwayServiceModel {
     public readonly updatedAt?: Date,
     public readonly deploymentStatus?: string,
     public readonly statusUpdatedAt?: Date,
-    public readonly imageName?: string,
   ) {}
 
   getGameType(): string {
-    if (!this.imageName) {
-      return 'game';
-    }
-
-    const gameConfig = getGameConfigByDockerImage(this.imageName);
+    const gameConfig = getGameConfigBySource(this.source);
     return gameConfig?.id || 'game';
   }
 
@@ -57,6 +54,7 @@ export class RailwayServiceModel {
   static fromRailwayData(data: {
     id: string;
     name: string;
+    source: ServiceSource;
     createdAt: string;
     updatedAt: string;
     projectId: string;
@@ -64,19 +62,18 @@ export class RailwayServiceModel {
     environmentId: string;
     deploymentStatus?: string;
     statusUpdatedAt?: Date;
-    imageName?: string;
   }): RailwayServiceModel {
     return new RailwayServiceModel(
       data.id,
       data.name,
+      data.source,
       data.projectId,
       data.projectName,
       data.environmentId,
       new Date(data.createdAt),
-      data.updatedAt ? new Date(data.updatedAt) : undefined,
+      new Date(data.updatedAt),
       data.deploymentStatus,
       data.statusUpdatedAt ? new Date(data.statusUpdatedAt) : undefined,
-      data.imageName,
     );
   }
 }

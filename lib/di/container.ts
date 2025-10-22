@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { Container } from 'inversify';
 import { TYPES } from './types';
 import { getClient } from '../apollo-client';
-import { RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID } from '../env';
+import { RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID, RAILWAY_WORKSPACE_ID } from '../env';
 import { RailwayRepository } from '../repositories/railway.repository';
 import { GameServerService } from '../services/game-server.service';
 import { GameCatalogService } from '../services/game-catalog.service';
@@ -14,7 +14,12 @@ container
   .bind<IRailwayRepository>(TYPES.IRailwayRepository)
   .toDynamicValue(() => {
     const client = getClient();
-    return new RailwayRepository(client, RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID);
+    return new RailwayRepository(
+      client,
+      RAILWAY_PROJECT_ID,
+      RAILWAY_ENVIRONMENT_ID,
+      RAILWAY_WORKSPACE_ID,
+    );
   })
   .inSingletonScope();
 

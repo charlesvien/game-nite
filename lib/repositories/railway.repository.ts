@@ -1,38 +1,48 @@
 import 'reflect-metadata';
 import { injectable } from 'inversify';
 import { ApolloClient, gql } from '@apollo/client';
-import { IRailwayRepository, CreateServiceOptions } from './railway.repository.interface';
+import {
+  IRailwayRepository,
+  DeployTemplateOptions,
+} from './railway.repository.interface';
 import { RailwayServiceModel, TcpProxy } from '../domain/service';
-import { ServiceCreationError, RailwayError } from '../errors/railway-errors';
+import { RailwayError } from '../errors/railway-errors';
 
 // ====================
 // Service operations
 // ====================
 
-const CREATE_SERVICE_MUTATION = gql`
-  mutation CreateService(
-    $name: String!
-    $projectId: String!
+const DEPLOY_TEMPLATE_MUTATION = gql`
+  mutation DeployTemplate(
+    $serviceId: String!
+    $serviceName: String!
+    $templateId: String!
+    $tcpProxyApplicationPort: Int!
     $environmentId: String!
-    $source: ServiceSourceInput
-    $variables: EnvironmentVariables
+    $projectId: String!
+    $workspaceId: String!
+    $variables: EnvironmentVariables!
+    $volumeMountPath: String!
+    $volumeName: String!
   ) {
-    serviceCreate(
+    templateDeploy(
       input: {
-        name: $name
-        projectId: $projectId
+        services: {
+          id: $serviceId
+          serviceName: $serviceName
+          template: $templateId
+          tcpProxyApplicationPort: $tcpProxyApplicationPort
+          variables: $variables
+          volumes: { mountPath: $volumeMountPath, volumeName: $volumeName }
+        }
         environmentId: $environmentId
-        source: $source
-        variables: $variables
+        projectId: $projectId
+        templateCode: $templateId
+        workspaceId: $workspaceId
       }
     ) {
-      id
-      name
-      createdAt
-      updatedAt
-      project {
-        name
-      }
+      projectId
+      workflowId
     }
   }
 `;
@@ -84,6 +94,24 @@ const GET_PROJECT_QUERY = gql`
   }
 `;
 
+// ====================
+// TCP Proxy operations
+// ====================
+
+const GET_TCP_PROXIES_QUERY = gql`
+  query GetTcpProxies($environmentId: String!, $serviceId: String!) {
+    tcpProxies(environmentId: $environmentId, serviceId: $serviceId) {
+      domain
+      proxyPort
+      serviceId
+    }
+  }
+`;
+
+// ====================
+// Volume operations
+// ====================
+
 const GET_PROJECT_VOLUMES_QUERY = gql`
   query GetProjectVolumes($projectId: String!) {
     project(id: $projectId) {
@@ -105,68 +133,22 @@ const GET_PROJECT_VOLUMES_QUERY = gql`
   }
 `;
 
-// ====================
-// TCP Proxy operations
-// ====================
-
-const CREATE_TCP_PROXY_MUTATION = gql`
-  mutation CreateTcpProxy(
-    $environmentId: String!
-    $serviceId: String!
-    $applicationPort: Int!
-  ) {
-    tcpProxyCreate(
-      input: {
-        applicationPort: $applicationPort
-        environmentId: $environmentId
-        serviceId: $serviceId
-      }
-    ) {
-      applicationPort
-      domain
-      proxyPort
-    }
-  }
-`;
-
-const GET_TCP_PROXIES_QUERY = gql`
-  query GetTcpProxies($environmentId: String!, $serviceId: String!) {
-    tcpProxies(environmentId: $environmentId, serviceId: $serviceId) {
-      domain
-      proxyPort
-      serviceId
-    }
-  }
-`;
-
-// ====================
-// Volume operations
-// ====================
-
-const CREATE_VOLUME_MUTATION = gql`
-  mutation CreateVolume(
-    $environmentId: String!
-    $projectId: String!
-    $mountPath: String!
-    $serviceId: String!
-  ) {
-    volumeCreate(
-      input: {
-        environmentId: $environmentId
-        projectId: $projectId
-        mountPath: $mountPath
-        serviceId: $serviceId
-      }
-    ) {
-      id
-      name
-    }
-  }
-`;
-
 const DELETE_VOLUME_MUTATION = gql`
   mutation DeleteVolume($volumeId: String!) {
     volumeDelete(volumeId: $volumeId)
+  }
+`;
+
+// ====================
+// Workflow operations
+// ====================
+
+const GET_WORKFLOW_STATUS_QUERY = gql`
+  query GetWorkflowStatus($workflowId: String!) {
+    workflowStatus(workflowId: $workflowId) {
+      error
+      status
+    }
   }
 `;
 
@@ -176,6 +158,7 @@ export class RailwayRepository implements IRailwayRepository {
     private readonly client: ApolloClient,
     private readonly projectId: string,
     private readonly environmentId: string,
+    private readonly workspaceId: string,
   ) {}
 
   async getServices(): Promise<RailwayServiceModel[]> {
@@ -224,16 +207,22 @@ export class RailwayRepository implements IRailwayRepository {
           edge.node.deployments?.edges?.[0]?.node?.status;
         const statusUpdatedAt: Date | undefined =
           edge.node.deployments?.edges?.[0]?.node?.statusUpdatedAt;
-        const imageName: string | undefined = edge.node.deployments?.edges?.[0]?.node
-          ?.meta?.image as string | undefined;
+        const image: string | undefined = edge.node.deployments?.edges?.[0]?.node?.meta
+          ?.image as string | undefined;
+        const repo: string | undefined = edge.node.deployments?.edges?.[0]?.node?.meta
+          ?.repo as string | undefined;
+
         return RailwayServiceModel.fromRailwayData({
           ...edge.node,
+          source: {
+            image: image,
+            repo: repo,
+          },
           projectId: data.project.id,
           projectName: data.project.name,
           environmentId: this.environmentId,
           deploymentStatus: deploymentStatus,
           statusUpdatedAt: statusUpdatedAt,
-          imageName: imageName,
         });
       });
     } catch (error) {
@@ -286,124 +275,57 @@ export class RailwayRepository implements IRailwayRepository {
     }
   }
 
-  async createService(options: CreateServiceOptions): Promise<RailwayServiceModel> {
+  async getWorkflowStatus(workflowId: string): Promise<{ status: string; error: string }> {
     try {
-      const existingServices = await this.getServices();
-      const nameExists = existingServices.some(
-        (service) => service.name.toLowerCase() === options.name.toLowerCase(),
-      );
-
-      if (nameExists) {
-        throw new ServiceCreationError(
-          `A service with the name "${options.name}" already exists`,
-        );
-      }
-
-      console.log(
-        '[RailwayRepository] Service name is available, proceeding with creation',
-      );
-
-      const { data } = await this.client.mutate<{
-        serviceCreate: {
-          id: string;
-          name: string;
-          createdAt: string;
-          updatedAt: string;
-          project: {
-            name: string;
-          };
+      const { data } = await this.client.query<{
+        workflowStatus: {
+          status: string;
+          error: string;
         };
       }>({
-        mutation: CREATE_SERVICE_MUTATION,
+        query: GET_WORKFLOW_STATUS_QUERY,
+        variables: { workflowId },
+        fetchPolicy: 'no-cache',
+      });
+      return { status: data?.workflowStatus?.status || '', error: data?.workflowStatus?.error || '' };
+    } catch (error) {
+      console.error('[RailwayRepository] Error fetching workflow status:', error);
+      throw new RailwayError(
+        `Failed to fetch workflow status: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'FETCH_FAILED',
+      );
+    }
+  }
+
+  async deployTemplate(options: DeployTemplateOptions): Promise<string> {
+    try {
+      const { data } = await this.client.mutate<{
+        templateDeploy: {
+          projectId: string;
+          workflowId: string;
+        };
+      }>({
+        mutation: DEPLOY_TEMPLATE_MUTATION,
         variables: {
-          name: options.name,
-          projectId: this.projectId,
+          serviceId: options.serviceName,
+          serviceName: options.serviceName,
+          templateId: options.source.image || options.source.repo,
+          tcpProxyApplicationPort: options.tcpProxyApplicationPort,
           environmentId: this.environmentId,
-          source: options.source,
+          projectId: this.projectId,
+          workspaceId: this.workspaceId,
           variables: options.variables,
+          volumeMountPath: options.volumeMountPath,
+          volumeName: options.serviceName,
         },
       });
 
-      if (!data?.serviceCreate) {
-        throw new ServiceCreationError('No data returned from mutation');
-      }
-
-      const serviceId = data.serviceCreate.id;
-      console.log('[RailwayRepository] Service created successfully:', serviceId);
-
-      try {
-        if (options.tcpProxyApplicationPort) {
-          console.log(
-            '[RailwayRepository] Creating TCP proxy with port:',
-            options.tcpProxyApplicationPort,
-          );
-          await this.client.mutate({
-            mutation: CREATE_TCP_PROXY_MUTATION,
-            variables: {
-              environmentId: this.environmentId,
-              serviceId: serviceId,
-              applicationPort: options.tcpProxyApplicationPort,
-            },
-          });
-          console.log('[RailwayRepository] TCP proxy created successfully');
-        }
-
-        if (options.volumeMountPath) {
-          console.log(
-            '[RailwayRepository] Creating volume with path:',
-            options.volumeMountPath,
-          );
-          await this.client.mutate({
-            mutation: CREATE_VOLUME_MUTATION,
-            variables: {
-              environmentId: this.environmentId,
-              projectId: this.projectId,
-              mountPath: options.volumeMountPath,
-              serviceId: serviceId,
-            },
-          });
-          console.log('[RailwayRepository] Volume created successfully');
-        }
-
-        return RailwayServiceModel.fromRailwayData({
-          ...data.serviceCreate,
-          projectId: this.projectId,
-          projectName: data.serviceCreate.project.name,
-          environmentId: this.environmentId,
-        });
-      } catch (setupError) {
-        console.error(
-          '[RailwayRepository] Failed to complete service setup, rolling back:',
-          setupError,
-        );
-
-        try {
-          await this.client.mutate({
-            mutation: DELETE_SERVICE_MUTATION,
-            variables: { serviceId: serviceId },
-          });
-          console.log(
-            '[RailwayRepository] Successfully rolled back and deleted service:',
-            serviceId,
-          );
-        } catch (deleteError) {
-          console.error(
-            '[RailwayRepository] Failed to rollback service deletion:',
-            deleteError,
-          );
-        }
-
-        const errorMessage =
-          setupError instanceof Error ? setupError.message : 'Unknown error';
-        throw new ServiceCreationError(
-          `Failed to configure service (rolled back): ${errorMessage}`,
-        );
-      }
+      return data?.templateDeploy?.workflowId || '';
     } catch (error) {
-      console.error('[RailwayRepository] Error in createService:', error);
-      if (error instanceof ServiceCreationError) throw error;
-      throw new ServiceCreationError(
-        error instanceof Error ? error.message : 'Unknown error',
+      console.error('[RailwayRepository] Error deploying template:', error);
+      throw new RailwayError(
+        `Failed to deploy template: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'DEPLOY_FAILED',
       );
     }
   }

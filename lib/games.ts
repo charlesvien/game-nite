@@ -1,3 +1,5 @@
+import { ServiceSource } from './repositories/railway.repository.interface';
+
 export interface GameEnvironmentVariable {
   key: string;
   value: string;
@@ -7,12 +9,12 @@ export interface GameEnvironmentVariable {
 export interface GameConfig {
   id: string;
   name: string;
-  description: string;
-  image: string;
-  defaultPort: number;
-  dockerImage?: string;
-  environmentVariables?: GameEnvironmentVariable[];
   color: string;
+  image: string;
+  description: string;
+  source: ServiceSource;
+  defaultPort: number;
+  environmentVariables?: GameEnvironmentVariable[];
   volumeMountPath?: string;
 }
 
@@ -20,25 +22,29 @@ export const GAMES: Record<string, GameConfig> = {
   minecraft: {
     id: 'minecraft',
     name: 'Minecraft',
-    description: 'Build stuff, mine things',
+    color: 'bg-green-600',
     image: '/games/minecraft.jpg',
-    defaultPort: 25565,
-    dockerImage: 'itzg/minecraft-server',
+    description: 'Build stuff, mine things',
+    source: {
+      image: 'itzg/minecraft-server',
+    },
     environmentVariables: [
       { key: 'EULA', value: 'TRUE', description: 'Accept Minecraft EULA' },
       { key: 'TYPE', value: 'PAPER', description: 'Server type' },
       { key: 'VERSION', value: 'LATEST', description: 'Minecraft version' },
     ],
-    color: 'bg-green-600',
+    defaultPort: 25565,
     volumeMountPath: '/data',
   },
   rust: {
     id: 'rust',
     name: 'Rust',
-    description: 'Get raided, rage quit, repeat',
+    color: 'bg-orange-600',
     image: '/games/rust.jpg',
-    defaultPort: 28015,
-    dockerImage: 'didstopia/rust-server',
+    description: 'Get raided, rage quit, repeat',
+    source: {
+      image: 'didstopia/rust-server',
+    },
     environmentVariables: [
       {
         key: 'RUST_SERVER_STARTUP_ARGUMENTS',
@@ -51,16 +57,18 @@ export const GAMES: Record<string, GameConfig> = {
       { key: 'RUST_SERVER_NAME', value: 'My Rust Server', description: 'Server name' },
       { key: 'RUST_SERVER_MAXPLAYERS', value: '50', description: 'Max players' },
     ],
-    color: 'bg-orange-600',
+    defaultPort: 28015,
     volumeMountPath: '/steamcmd/rust',
   },
   factorio: {
     id: 'factorio',
     name: 'Factorio',
-    description: 'The factory must grow',
+    color: 'bg-yellow-600',
     image: '/games/factorio.jpg',
-    defaultPort: 34197,
-    dockerImage: 'factoriotools/factorio',
+    description: 'The factory must grow',
+    source: {
+      image: 'factoriotools/factorio',
+    },
     environmentVariables: [
       {
         key: 'FACTORIO_SERVER_NAME',
@@ -68,16 +76,18 @@ export const GAMES: Record<string, GameConfig> = {
         description: 'Server name',
       },
     ],
-    color: 'bg-yellow-600',
+    defaultPort: 34197,
     volumeMountPath: '/factorio',
   },
   ark: {
     id: 'ark',
     name: 'ARK: Survival',
-    description: 'Tame dinos, die to dinos',
+    color: 'bg-blue-600',
     image: '/games/ark-survival.jpg',
-    defaultPort: 7777,
-    dockerImage: 'thmhoag/arkserver',
+    description: 'Tame dinos, die to dinos',
+    source: {
+      image: 'thmhoag/arkserver',
+    },
     environmentVariables: [
       { key: 'SESSIONNAME', value: 'My ARK Server', description: 'Server session name' },
       { key: 'SERVERMAP', value: 'TheIsland', description: 'Map name' },
@@ -85,7 +95,7 @@ export const GAMES: Record<string, GameConfig> = {
       { key: 'ADMINPASSWORD', value: 'admin123', description: 'Admin password' },
       { key: 'MAX_PLAYERS', value: '70', description: 'Max players' },
     ],
-    color: 'bg-blue-600',
+    defaultPort: 7777,
     volumeMountPath: '/ark',
   },
 };
@@ -94,6 +104,8 @@ export function getGameConfig(gameId: string): GameConfig | undefined {
   return GAMES[gameId];
 }
 
-export function getGameConfigByDockerImage(dockerImage: string): GameConfig | undefined {
-  return Object.values(GAMES).find((game) => game.dockerImage === dockerImage);
+export function getGameConfigBySource(source: ServiceSource): GameConfig | undefined {
+  return Object.values(GAMES).find(
+    (game) => game.source.image === source.image || game.source.repo === source.repo,
+  );
 }

@@ -15,6 +15,13 @@ export class ServiceCreationError extends RailwayError {
   }
 }
 
+export class TemplateDeploymentError extends RailwayError {
+  constructor(reason: string) {
+    super(`Failed to deploy template: ${reason}`, 'TEMPLATE_DEPLOYMENT_FAILED');
+    this.name = 'TemplateDeploymentError';
+  }
+}
+
 export class TemplateNotFoundError extends RailwayError {
   constructor(gameId: string) {
     super(`Template not found for game: ${gameId}`, 'TEMPLATE_NOT_FOUND');

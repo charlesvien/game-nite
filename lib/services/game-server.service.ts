@@ -4,7 +4,7 @@ import { TYPES } from '../di/types';
 import type { IRailwayRepository } from '../repositories/railway.repository.interface';
 import { Game } from '../domain/game';
 import { RailwayServiceModel } from '../domain/service';
-import { TemplateNotFoundError, ServiceCreationError } from '../errors/railway-errors';
+import { TemplateDeploymentError } from '../errors/railway-errors';
 import { getGameCatalogService } from '../di/container';
 
 @injectable()
@@ -25,30 +25,24 @@ export class GameServerService {
     }
 
     const filtered = allServices.filter(
-      (service) => service.imageName === game.dockerImage,
+      (service) => service.source.image === game.source.image,
     );
 
     return filtered;
   }
 
-  async createServer(game: Game, serverName: string): Promise<RailwayServiceModel> {
-    if (!game.canDeploy()) {
-      throw new TemplateNotFoundError(game.id);
-    }
-
+  async deployTemplate(game: Game, serviceName: string): Promise<string> {
     try {
-      return await this.railwayRepository.createService({
-        name: serverName,
-        variables: game.getEnvironmentVariablesWithPort(),
-        source: {
-          image: game.dockerImage,
-        },
+      return await this.railwayRepository.deployTemplate({
+        serviceName: serviceName,
+        source: game.source,
         tcpProxyApplicationPort: game.defaultPort,
+        variables: game.getEnvironmentVariablesWithPort(),
         volumeMountPath: game.volumeMountPath,
       });
     } catch (error) {
-      if (error instanceof ServiceCreationError) throw error;
-      throw new ServiceCreationError(
+      if (error instanceof TemplateDeploymentError) throw error;
+      throw new TemplateDeploymentError(
         error instanceof Error ? error.message : 'Unknown error',
       );
     }

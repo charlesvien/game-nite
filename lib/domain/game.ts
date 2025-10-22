@@ -1,24 +1,24 @@
-export interface GameEnvironmentVariable {
-  key: string;
-  value: string;
-  description?: string;
-}
+import { GameConfig, GameEnvironmentVariable } from '../games';
+import { ServiceSource } from '../repositories/railway.repository.interface';
 
 export class Game {
   constructor(
     public readonly id: string,
     public readonly name: string,
-    public readonly description: string,
-    public readonly image: string,
-    public readonly defaultPort: number,
-    public readonly dockerImage: string,
-    public readonly environmentVariables: GameEnvironmentVariable[],
     public readonly color: string,
+    public readonly description: string,
+    public readonly source: ServiceSource,
+    public readonly defaultPort: number,
+    public readonly environmentVariables?: GameEnvironmentVariable[],
     public readonly volumeMountPath?: string,
   ) {}
 
+  get dockerImage(): string | undefined {
+    return this.source.image;
+  }
+
   hasDockerImage(): boolean {
-    return this.dockerImage.length > 0;
+    return !!this.source.image;
   }
 
   canDeploy(): boolean {
@@ -28,7 +28,7 @@ export class Game {
   getEnvironmentVariablesWithPort(): Record<string, string> {
     const vars: Record<string, string> = {};
 
-    this.environmentVariables.forEach((envVar) => {
+    this.environmentVariables?.forEach((envVar) => {
       vars[envVar.key] = envVar.value;
     });
 
@@ -39,26 +39,15 @@ export class Game {
     return vars;
   }
 
-  static fromConfig(config: {
-    id: string;
-    name: string;
-    description: string;
-    image: string;
-    defaultPort: number;
-    dockerImage?: string;
-    environmentVariables?: GameEnvironmentVariable[];
-    color: string;
-    volumeMountPath?: string;
-  }): Game {
+  static fromConfig(config: GameConfig): Game {
     return new Game(
       config.id,
       config.name,
-      config.description,
-      config.image,
-      config.defaultPort,
-      config.dockerImage || '',
-      config.environmentVariables || [],
       config.color,
+      config.description,
+      config.source,
+      config.defaultPort,
+      config.environmentVariables,
       config.volumeMountPath,
     );
   }
