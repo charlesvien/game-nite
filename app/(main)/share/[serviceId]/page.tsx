@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import CopyButton from './_components/copy-button';
 import { getGameConfig } from '@/lib/games';
-import { getGameServerService } from '@/lib/di/container';
+import { getGameServerService, getRailwayRepository } from '@/lib/di/container';
 
 interface PageProps {
   params: Promise<{
@@ -13,6 +13,7 @@ interface PageProps {
 export default async function SharePage({ params }: PageProps) {
   const { serviceId } = await params;
   const gameServerService = getGameServerService();
+  const railwayRepository = getRailwayRepository();
 
   const foundServer = await gameServerService.getServerById(serviceId);
   if (!foundServer) {
@@ -22,11 +23,19 @@ export default async function SharePage({ params }: PageProps) {
   const gameType = foundServer.name.toLowerCase().split('-')[0] || 'game';
   const gameConfig = getGameConfig(gameType);
 
+  const tcpProxies = await railwayRepository.getTcpProxies(
+    foundServer.environmentId,
+    serviceId,
+  );
+  if (!tcpProxies.length) {
+    notFound();
+  }
+
   const connectionDetails = {
     serverName: foundServer.name,
     game: gameConfig?.name || gameType,
-    ip: 'your-server.railway.app',
-    port: gameConfig?.defaultPort.toString() || '25565',
+    ip: tcpProxies[0].domain,
+    port: tcpProxies[0].proxyPort.toString(),
     password: 'Generated when server starts',
   };
 

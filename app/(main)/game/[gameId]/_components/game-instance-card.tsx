@@ -81,6 +81,9 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
   ): { label: string; color: string } {
     if (deletingState && deletingStartTime) {
       const elapsed = Math.floor((now - deletingStartTime) / 1000);
+      if (elapsed < 0) {
+        return { label: 'Deleting (0:00)', color: 'bg-red-500 animate-pulse' };
+      }
       const min = Math.floor(elapsed / 60);
       const sec = elapsed % 60;
       const timeStr = ` (${min}:${sec.toString().padStart(2, '0')})`;
@@ -139,12 +142,14 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
       return;
     }
 
+    const now = Date.now();
     setIsDeleting(true);
-    setDeletionStartTime(Date.now());
+    setDeletionStartTime(now);
+    setCurrentTime(now);
     try {
       const result = await deleteServerAction(service.id);
       if (result.success) {
-        toast.success('Server is being deleted...');
+        toast.success('Server has been deleted');
         router.refresh();
       } else {
         toast.error(result.error || 'Failed to delete server');

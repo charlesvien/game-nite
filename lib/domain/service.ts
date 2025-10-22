@@ -1,9 +1,16 @@
+export interface TcpProxy {
+  domain: string;
+  proxyPort: number;
+  serviceId: string;
+}
+
 export class RailwayServiceModel {
   constructor(
     public readonly id: string,
     public readonly name: string,
     public readonly projectId: string,
     public readonly projectName: string,
+    public readonly environmentId: string,
     public readonly createdAt: Date,
     public readonly updatedAt?: Date,
     public readonly deploymentStatus?: string,
@@ -47,6 +54,7 @@ export class RailwayServiceModel {
     updatedAt: string;
     projectId: string;
     projectName: string;
+    environmentId: string;
     deploymentStatus?: string;
     statusUpdatedAt?: Date;
     imageName?: string;
@@ -56,6 +64,7 @@ export class RailwayServiceModel {
       data.name,
       data.projectId,
       data.projectName,
+      data.environmentId,
       new Date(data.createdAt),
       data.updatedAt ? new Date(data.updatedAt) : undefined,
       data.deploymentStatus,

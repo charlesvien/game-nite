@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { injectable } from 'inversify';
 import { ApolloClient, gql } from '@apollo/client';
 import { IRailwayRepository, CreateServiceOptions } from './railway.repository.interface';
-import { RailwayServiceModel } from '../domain/service';
+import { RailwayServiceModel, TcpProxy } from '../domain/service';
 import { ServiceCreationError, RailwayError } from '../errors/railway-errors';
 
 const GET_PROJECT_QUERY = gql`
@@ -84,6 +84,16 @@ const CREATE_TCP_PROXY_MUTATION = gql`
   }
 `;
 
+const GET_TCP_PROXIES_QUERY = gql`
+  query GetTcpProxies($environmentId: String!, $serviceId: String!) {
+    tcpProxies(environmentId: $environmentId, serviceId: $serviceId) {
+      domain
+      proxyPort
+      serviceId
+    }
+  }
+`;
+
 const CREATE_VOLUME_MUTATION = gql`
   mutation CreateVolume(
     $environmentId: String!
@@ -105,15 +115,20 @@ const CREATE_VOLUME_MUTATION = gql`
   }
 `;
 
-const GET_SERVICE_VOLUMES_QUERY = gql`
-  query GetServiceVolumes($serviceId: String!, $projectId: String!) {
-    service(id: $serviceId) {
-      id
-      volumeInstances(projectId: $projectId) {
+const GET_PROJECT_VOLUMES_QUERY = gql`
+  query GetProjectVolumes($projectId: String!) {
+    project(id: $projectId) {
+      volumes {
         edges {
           node {
-            id
-            volumeId
+            volumeInstances {
+              edges {
+                node {
+                  serviceId
+                  volumeId
+                }
+              }
+            }
           }
         }
       }
@@ -122,14 +137,14 @@ const GET_SERVICE_VOLUMES_QUERY = gql`
 `;
 
 const DELETE_VOLUME_MUTATION = gql`
-  mutation DeleteVolume($id: String!) {
-    volumeDelete(id: $id)
+  mutation DeleteVolume($volumeId: String!) {
+    volumeDelete(volumeId: $volumeId)
   }
 `;
 
 const DELETE_SERVICE_MUTATION = gql`
-  mutation DeleteService($id: String!) {
-    serviceDelete(id: $id)
+  mutation DeleteService($serviceId: String!) {
+    serviceDelete(id: $serviceId)
   }
 `;
 
@@ -178,6 +193,7 @@ export class RailwayRepository implements IRailwayRepository {
         query: GET_PROJECT_QUERY,
         variables: {
           projectId: this.projectId,
+          environmentId: this.environmentId,
         },
         fetchPolicy: 'no-cache',
       });
@@ -198,6 +214,7 @@ export class RailwayRepository implements IRailwayRepository {
           ...edge.node,
           projectId: data.project.id,
           projectName: data.project.name,
+          environmentId: this.environmentId,
           deploymentStatus: deploymentStatus,
           statusUpdatedAt: statusUpdatedAt,
           imageName: imageName,
@@ -217,6 +234,40 @@ export class RailwayRepository implements IRailwayRepository {
   async getServiceById(serviceId: string): Promise<RailwayServiceModel | null> {
     const services = await this.getServices();
     return services.find((s) => s.id === serviceId) || null;
+  }
+
+  async getTcpProxies(environmentId: string, serviceId: string): Promise<TcpProxy[]> {
+    try {
+      const { data } = await this.client.query<{
+        tcpProxies: Array<{
+          domain: string;
+          serviceId: string;
+          proxyPort: number;
+        }>;
+      }>({
+        query: GET_TCP_PROXIES_QUERY,
+        variables: {
+          environmentId,
+          serviceId,
+        },
+        fetchPolicy: 'no-cache',
+      });
+
+      if (!data?.tcpProxies) {
+        console.error('[RailwayRepository] No TCP proxies data returned');
+        return [];
+      }
+
+      return data.tcpProxies;
+    } catch (error) {
+      console.error('[RailwayRepository] Error fetching TCP proxies:', error);
+      throw new RailwayError(
+        `Failed to fetch TCP proxies: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+        'FETCH_FAILED',
+      );
+    }
   }
 
   async createService(options: CreateServiceOptions): Promise<RailwayServiceModel> {
@@ -318,6 +369,7 @@ export class RailwayRepository implements IRailwayRepository {
         ...data.serviceCreate,
         projectId: this.projectId,
         projectName: data.serviceCreate.project.name,
+        environmentId: this.environmentId,
       });
     } catch (error) {
       console.error('[RailwayRepository] Error in createService:', error);
@@ -332,60 +384,77 @@ export class RailwayRepository implements IRailwayRepository {
     try {
       console.log(`[RailwayRepository] Attempting to delete service ${serviceId}`);
 
+      const volumesToDelete: Array<{ volumeId: string; serviceId: string }> = [];
       try {
         const volumesData = await this.client.query<{
-          service: {
+          project: {
             id: string;
-            volumeInstances: {
+            volumes: {
               edges: Array<{
                 node: {
-                  id: string;
-                  volumeId: string;
+                  volumeInstances: {
+                    edges: Array<{
+                      node: {
+                        serviceId: string;
+                        volumeId: string;
+                      };
+                    }>;
+                  };
                 };
               }>;
             };
           };
         }>({
-          query: GET_SERVICE_VOLUMES_QUERY,
+          query: GET_PROJECT_VOLUMES_QUERY,
           variables: {
-            serviceId,
             projectId: this.projectId,
           },
           fetchPolicy: 'no-cache',
         });
 
-        const volumes = volumesData?.data?.service?.volumeInstances?.edges || [];
-        console.log(
-          `[RailwayRepository] Found ${volumes.length} volumes for service ${serviceId}`,
-        );
+        const volumes = volumesData?.data?.project?.volumes?.edges || [];
+        console.log('[RailwayRepository] Found volumes for project:', {
+          projectId: this.projectId,
+          volumes: volumes.length,
+        });
 
         for (const volumeEdge of volumes) {
-          try {
-            await this.client.mutate({
-              mutation: DELETE_VOLUME_MUTATION,
-              variables: { id: volumeEdge.node.volumeId },
-            });
-            console.log(`[RailwayRepository] Deleted volume ${volumeEdge.node.volumeId}`);
-          } catch (volumeError) {
-            console.error(
-              `[RailwayRepository] Failed to delete volume ${volumeEdge.node.volumeId}:`,
-              volumeError,
-            );
+          const volumeId = volumeEdge.node.volumeInstances.edges[0].node.volumeId;
+          const volumeServiceId = volumeEdge.node.volumeInstances.edges[0].node.serviceId;
+          if (volumeServiceId === serviceId) {
+            volumesToDelete.push({ volumeId, serviceId: volumeServiceId });
           }
         }
-      } catch (volumeQueryError) {
-        console.warn(
-          '[RailwayRepository] Could not query/delete volumes, continuing with service deletion:',
-          volumeQueryError,
+        console.log(
+          `[RailwayRepository] Found ${volumesToDelete.length} volumes to delete for service ${serviceId}`,
         );
+      } catch (volumeQueryError) {
+        console.warn('[RailwayRepository] Could not query volumes:', volumeQueryError);
       }
 
       const result = await this.client.mutate({
         mutation: DELETE_SERVICE_MUTATION,
-        variables: { id: serviceId },
+        variables: { serviceId: serviceId },
       });
-
       console.log(`[RailwayRepository] Deleted service ${serviceId}`, result);
+
+      if (volumesToDelete.length > 0) {
+        console.log(`[RailwayRepository] Deleting ${volumesToDelete.length} volumes`);
+        for (const volume of volumesToDelete) {
+          try {
+            await this.client.mutate({
+              mutation: DELETE_VOLUME_MUTATION,
+              variables: { volumeId: volume.volumeId },
+            });
+            console.log(`[RailwayRepository] Deleted volume ${volume.volumeId}`);
+          } catch (volumeError) {
+            console.error(
+              `[RailwayRepository] Failed to delete volume ${volume.volumeId}:`,
+              volumeError,
+            );
+          }
+        }
+      }
     } catch (error) {
       console.error('[RailwayRepository] Error deleting service:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';

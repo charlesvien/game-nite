@@ -1,4 +1,4 @@
-import { RailwayServiceModel } from '../domain/service';
+import { RailwayServiceModel, TcpProxy } from '../domain/service';
 
 export interface ServiceSource {
   image?: string;
@@ -16,6 +16,7 @@ export interface CreateServiceOptions {
 export interface IRailwayServiceReader {
   getServices(): Promise<RailwayServiceModel[]>;
   getServiceById(serviceId: string): Promise<RailwayServiceModel | null>;
+  getTcpProxies(environmentId: string, serviceId: string): Promise<TcpProxy[]>;
 }
 
 export interface IRailwayServiceWriter {
