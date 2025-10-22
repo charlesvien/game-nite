@@ -331,12 +331,12 @@ export class RailwayRepository implements IRailwayRepository {
       const serviceId = data.serviceCreate.id;
       console.log('[RailwayRepository] Service created successfully:', serviceId);
 
-      if (options.tcpProxyApplicationPort) {
-        console.log(
-          '[RailwayRepository] Creating TCP proxy with port:',
-          options.tcpProxyApplicationPort,
-        );
-        try {
+      try {
+        if (options.tcpProxyApplicationPort) {
+          console.log(
+            '[RailwayRepository] Creating TCP proxy with port:',
+            options.tcpProxyApplicationPort,
+          );
           await this.client.mutate({
             mutation: CREATE_TCP_PROXY_MUTATION,
             variables: {
@@ -346,20 +346,13 @@ export class RailwayRepository implements IRailwayRepository {
             },
           });
           console.log('[RailwayRepository] TCP proxy created successfully');
-        } catch (updateError) {
-          console.warn(
-            '[RailwayRepository] Could not auto-configure TCP proxy port (may need manual configuration):',
-            updateError,
-          );
         }
-      }
 
-      if (options.volumeMountPath) {
-        console.log(
-          '[RailwayRepository] Creating volume with path:',
-          options.volumeMountPath,
-        );
-        try {
+        if (options.volumeMountPath) {
+          console.log(
+            '[RailwayRepository] Creating volume with path:',
+            options.volumeMountPath,
+          );
           await this.client.mutate({
             mutation: CREATE_VOLUME_MUTATION,
             variables: {
@@ -370,20 +363,42 @@ export class RailwayRepository implements IRailwayRepository {
             },
           });
           console.log('[RailwayRepository] Volume created successfully');
-        } catch (volumeError) {
-          console.warn(
-            '[RailwayRepository] Could not auto-create volume (may need manual configuration):',
-            volumeError,
+        }
+
+        return RailwayServiceModel.fromRailwayData({
+          ...data.serviceCreate,
+          projectId: this.projectId,
+          projectName: data.serviceCreate.project.name,
+          environmentId: this.environmentId,
+        });
+      } catch (setupError) {
+        console.error(
+          '[RailwayRepository] Failed to complete service setup, rolling back:',
+          setupError,
+        );
+
+        try {
+          await this.client.mutate({
+            mutation: DELETE_SERVICE_MUTATION,
+            variables: { serviceId: serviceId },
+          });
+          console.log(
+            '[RailwayRepository] Successfully rolled back and deleted service:',
+            serviceId,
+          );
+        } catch (deleteError) {
+          console.error(
+            '[RailwayRepository] Failed to rollback service deletion:',
+            deleteError,
           );
         }
-      }
 
-      return RailwayServiceModel.fromRailwayData({
-        ...data.serviceCreate,
-        projectId: this.projectId,
-        projectName: data.serviceCreate.project.name,
-        environmentId: this.environmentId,
-      });
+        const errorMessage =
+          setupError instanceof Error ? setupError.message : 'Unknown error';
+        throw new ServiceCreationError(
+          `Failed to configure service (rolled back): ${errorMessage}`,
+        );
+      }
     } catch (error) {
       console.error('[RailwayRepository] Error in createService:', error);
       if (error instanceof ServiceCreationError) throw error;
