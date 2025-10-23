@@ -75,15 +75,14 @@ export default function CreateServerForm({ gameId }: CreateServerFormProps) {
             setCreationStartTime(null);
             router.push(`/game/${gameId}`);
           }
-        } catch (pollError) {
+        } catch {
           clearInterval(pollInterval);
           toast.error('Failed to check server status');
           setIsCreating(false);
           setCreationStartTime(null);
         }
       }, 3000);
-
-    } catch (error) {
+    } catch {
       toast.error('Failed to create server');
       setIsCreating(false);
       setCreationStartTime(null);

@@ -5,7 +5,7 @@ One-click game server provisioning for your frens. Instantly deploy and manage g
 ## Features
 
 - **Instant Deployment** - One-click server creation via Railway's API
-- **Multiple Games** - Supports Minecraft, Rust, Factorio, ARK: Survival Evolved, and any other game server that can be containerized.
+- **Multiple Games** - Currently supports Minecraft, Rust, Factorio
 - **Quick Management** - Restart, delete, and monitor servers in real-time
 - **Easy Sharing** - Generate shareable links with connection details
 

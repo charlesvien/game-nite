@@ -275,7 +275,9 @@ export class RailwayRepository implements IRailwayRepository {
     }
   }
 
-  async getWorkflowStatus(workflowId: string): Promise<{ status: string; error: string }> {
+  async getWorkflowStatus(
+    workflowId: string,
+  ): Promise<{ status: string; error: string }> {
     try {
       const { data } = await this.client.query<{
         workflowStatus: {
@@ -287,7 +289,10 @@ export class RailwayRepository implements IRailwayRepository {
         variables: { workflowId },
         fetchPolicy: 'no-cache',
       });
-      return { status: data?.workflowStatus?.status || '', error: data?.workflowStatus?.error || '' };
+      return {
+        status: data?.workflowStatus?.status || '',
+        error: data?.workflowStatus?.error || '',
+      };
     } catch (error) {
       console.error('[RailwayRepository] Error fetching workflow status:', error);
       throw new RailwayError(
