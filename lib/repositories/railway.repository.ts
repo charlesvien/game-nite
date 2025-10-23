@@ -395,7 +395,7 @@ export class RailwayRepository implements IRailwayRepository {
                 variables: { volumeId },
               })
               .catch((error) =>
-                console.error(`[RailwayRepository] Failed to delete volume:`, error),
+                console.error('[RailwayRepository] Failed to delete volume:', error),
               ),
           ),
         );

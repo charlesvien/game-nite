@@ -60,7 +60,9 @@ export default function CreateServerForm({ gameId, game }: CreateServerFormProps
         }
 
         const servers = listResult.data || [];
-        const serverExists = servers.some((service) => service.name === pendingServerName);
+        const serverExists = servers.some(
+          (service) => service.name === pendingServerName,
+        );
 
         if (serverExists) {
           setPendingServerName(null);
