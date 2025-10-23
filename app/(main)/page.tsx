@@ -16,12 +16,12 @@ export default function Page() {
           <p className="text-xl text-slate-300">Pick a game to see what's running</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+        <div className="flex flex-wrap justify-center gap-6 max-w-7xl mx-auto">
           {Object.values(GAMES).map((game) => (
             <Link
               key={game.id}
               href={`/game/${game.id}`}
-              className="group relative overflow-hidden rounded-lg aspect-[3/4] bg-slate-800 border border-slate-700 hover:border-purple-500 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20"
+              className="group relative overflow-hidden rounded-lg aspect-[3/4] w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(25%-1.125rem)] bg-slate-800 border border-slate-700 hover:border-purple-500 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20"
             >
               <div className="absolute inset-0">
                 <Image

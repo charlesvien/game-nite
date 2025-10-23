@@ -36,8 +36,6 @@ export async function listServersAction(
     const gameServer = getGameServerService();
     const services = await gameServer.listServers(gameId);
 
-    console.log('services', services);
-
     const serializedServices = services.map((service) => ({
       id: service.id,
       name: service.name,
