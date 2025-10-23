@@ -340,15 +340,66 @@ export class RailwayRepository implements IRailwayRepository {
 
   async deleteService(serviceId: string): Promise<void> {
     try {
-      console.log(`[RailwayRepository] Attempting to delete service ${serviceId}`);
+      console.log(`[RailwayRepository] Deleting service ${serviceId}`);
 
-      const result = await this.client.mutate({
+      // Query and identify volumes to delete BEFORE deleting the service
+      let volumesToDelete: string[] = [];
+      try {
+        const volumesData = await this.client.query<{
+          project: {
+            volumes: {
+              edges: Array<{
+                node: {
+                  volumeInstances: {
+                    edges: Array<{
+                      node: {
+                        serviceId: string;
+                        volumeId: string;
+                      };
+                    }>;
+                  };
+                };
+              }>;
+            };
+          };
+        }>({
+          query: GET_PROJECT_VOLUMES_QUERY,
+          variables: { projectId: this.projectId },
+          fetchPolicy: 'no-cache',
+        });
+
+        const volumes = volumesData?.data?.project?.volumes?.edges || [];
+
+        volumesToDelete = volumes
+          .flatMap((volumeEdge) =>
+            volumeEdge.node.volumeInstances.edges
+              .filter((instanceEdge) => instanceEdge.node.serviceId === serviceId)
+              .map((instanceEdge) => instanceEdge.node.volumeId),
+          )
+          .filter((volumeId, index, self) => self.indexOf(volumeId) === index);
+      } catch (volumeQueryError) {
+        console.warn('[RailwayRepository] Could not query volumes:', volumeQueryError);
+      }
+
+      await this.client.mutate({
         mutation: DELETE_SERVICE_MUTATION,
         variables: { serviceId },
       });
-      console.log(`[RailwayRepository] Deleted service ${serviceId}`, result);
 
-      await this.deleteVolumesForService(serviceId);
+      if (volumesToDelete.length > 0) {
+        await Promise.allSettled(
+          volumesToDelete.map((volumeId) =>
+            this.client
+              .mutate({
+                mutation: DELETE_VOLUME_MUTATION,
+                variables: { volumeId },
+              })
+              .catch((error) =>
+                console.error(`[RailwayRepository] Failed to delete volume:`, error),
+              ),
+          ),
+        );
+      }
     } catch (error) {
       console.error('[RailwayRepository] Error deleting service:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -356,71 +407,6 @@ export class RailwayRepository implements IRailwayRepository {
         `Failed to delete service: ${message}`,
         ErrorCodes.DELETE_FAILED,
       );
-    }
-  }
-
-  private async deleteVolumesForService(serviceId: string): Promise<void> {
-    try {
-      const { data } = await this.client.query<{
-        project: {
-          volumes: {
-            edges: Array<{
-              node: {
-                volumeInstances: {
-                  edges: Array<{
-                    node: {
-                      serviceId: string;
-                      volumeId: string;
-                    };
-                  }>;
-                };
-              };
-            }>;
-          };
-        };
-      }>({
-        query: GET_PROJECT_VOLUMES_QUERY,
-        variables: { projectId: this.projectId },
-        fetchPolicy: 'no-cache',
-      });
-
-      const volumes = data?.project?.volumes?.edges || [];
-      const volumesToDelete = volumes
-        .filter(
-          (volumeEdge) =>
-            volumeEdge.node.volumeInstances.edges[0]?.node.serviceId === serviceId,
-        )
-        .map((volumeEdge) => volumeEdge.node.volumeInstances.edges[0].node.volumeId);
-
-      if (volumesToDelete.length === 0) {
-        console.log(`[RailwayRepository] No volumes to delete for service ${serviceId}`);
-        return;
-      }
-
-      console.log(
-        `[RailwayRepository] Deleting ${volumesToDelete.length} volumes for service ${serviceId}`,
-      );
-
-      // Delete all volumes in parallel (there should only be one volume per service)
-      await Promise.allSettled(
-        volumesToDelete.map((volumeId) =>
-          this.client
-            .mutate({
-              mutation: DELETE_VOLUME_MUTATION,
-              variables: { volumeId },
-            })
-            .then(() => console.log(`[RailwayRepository] Deleted volume ${volumeId}`))
-            .catch((error) =>
-              console.error(
-                `[RailwayRepository] Failed to delete volume ${volumeId}:`,
-                error,
-              ),
-            ),
-        ),
-      );
-    } catch (error) {
-      console.warn('[RailwayRepository] Could not query/delete volumes:', error);
-      // Don't throw - volume deletion is best-effort cleanup
     }
   }
 
