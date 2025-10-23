@@ -19,6 +19,15 @@ export default function Footer() {
           rel="noopener noreferrer"
         >
           Charles
+        </a>{' '}
+        •{' '}
+        <a
+          href="https://github.com/charlesvien/game-nite"
+          className="underline hover:text-purple-400 transition-colors"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          View Source
         </a>
       </p>
     </div>

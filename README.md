@@ -43,6 +43,7 @@ Edit `.env.local` and configure the following:
 - `RAILWAY_API_TOKEN` - Get from [Railway account tokens](https://railway.app/account/tokens)
 - `RAILWAY_PROJECT_ID` - Your Railway project ID (found in project settings)
 - `RAILWAY_ENVIRONMENT_ID` - Your Railway environment ID (found in project settings)
+- `RAILWAY_WORKSPACE_ID` - Your Railway workspace ID (found in account settings)
 
 4. Start development server:
 

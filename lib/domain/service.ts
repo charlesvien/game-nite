@@ -61,7 +61,7 @@ export class RailwayServiceModel {
     projectName: string;
     environmentId: string;
     deploymentStatus?: string;
-    statusUpdatedAt?: Date;
+    statusUpdatedAt?: string;
   }): RailwayServiceModel {
     return new RailwayServiceModel(
       data.id,
