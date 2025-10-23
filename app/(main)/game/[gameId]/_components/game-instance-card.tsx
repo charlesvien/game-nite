@@ -29,7 +29,7 @@ interface GameInstanceCardProps {
   gameId: string;
 }
 
-export default function GameInstanceCard({ service }: GameInstanceCardProps) {
+export default function GameInstanceCard({ service, gameId }: GameInstanceCardProps) {
   const router = useRouter();
   const [isRestarting, setIsRestarting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -123,7 +123,7 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
   async function handleRestart() {
     setIsRestarting(true);
     try {
-      const result = await restartServerAction(service.id);
+      const result = await restartServerAction(service.id, gameId);
       if (result.success) {
         toast.success('Server restarting...');
         router.refresh();
@@ -147,7 +147,7 @@ export default function GameInstanceCard({ service }: GameInstanceCardProps) {
     setDeletionStartTime(now);
     setCurrentTime(now);
     try {
-      const result = await deleteServerAction(service.id);
+      const result = await deleteServerAction(service.id, gameId);
       if (result.success) {
         toast.success('Server has been deleted');
         router.refresh();

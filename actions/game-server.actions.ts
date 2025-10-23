@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { getGameServerService, getGameCatalogService } from '@/lib/di/container';
 import {
   RailwayError,
@@ -34,6 +35,8 @@ export async function listServersAction(
   try {
     const gameServer = getGameServerService();
     const services = await gameServer.listServers(gameId);
+
+    console.log('services', services);
 
     const serializedServices = services.map((service) => ({
       id: service.id,
@@ -75,6 +78,8 @@ export async function createServerAction(
 
     const workflowId: string = await gameServer.deployTemplate(game, serverName);
 
+    revalidatePath(`/game/${gameId}`);
+
     return {
       success: true,
       data: {
@@ -95,10 +100,15 @@ export async function createServerAction(
   }
 }
 
-export async function restartServerAction(serviceId: string): Promise<ActionResult> {
+export async function restartServerAction(
+  serviceId: string,
+  gameId: string,
+): Promise<ActionResult> {
   try {
     const gameServer = getGameServerService();
     await gameServer.restartServer(serviceId);
+
+    revalidatePath(`/game/${gameId}`);
 
     return { success: true };
   } catch (error) {
@@ -109,10 +119,15 @@ export async function restartServerAction(serviceId: string): Promise<ActionResu
   }
 }
 
-export async function deleteServerAction(serviceId: string): Promise<ActionResult> {
+export async function deleteServerAction(
+  serviceId: string,
+  gameId: string,
+): Promise<ActionResult> {
   try {
     const gameServer = getGameServerService();
     await gameServer.deleteServer(serviceId);
+
+    revalidatePath(`/game/${gameId}`);
 
     return { success: true };
   } catch (error) {
@@ -120,5 +135,24 @@ export async function deleteServerAction(serviceId: string): Promise<ActionResul
       return { success: false, error: error.message };
     }
     return { success: false, error: 'Failed to delete server' };
+  }
+}
+
+export async function getWorkflowStatusAction(
+  workflowId: string,
+): Promise<ActionResult<{ status: string; error: string }>> {
+  try {
+    const gameServer = getGameServerService();
+    const workflowStatus = await gameServer.getWorkflowStatus(workflowId);
+
+    return {
+      success: true,
+      data: workflowStatus,
+    };
+  } catch (error) {
+    if (error instanceof RailwayError) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: 'Failed to fetch workflow status' };
   }
 }

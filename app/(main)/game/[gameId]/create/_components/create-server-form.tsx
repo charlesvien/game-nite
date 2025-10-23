@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Loader2, Plus } from 'lucide-react';
-import { createServerAction } from '@/actions/game-server.actions';
+import { createServerAction, listServersAction } from '@/actions/game-server.actions';
 
 interface CreateServerFormProps {
   gameId: string;
@@ -42,18 +42,49 @@ export default function CreateServerForm({ gameId }: CreateServerFormProps) {
     setIsCreating(true);
     setCreationStartTime(now);
     setCurrentTime(now);
+
     try {
       const result = await createServerAction(gameId, serverName);
 
-      if (result.success) {
-        toast.success('Server created successfully!');
-        router.push(`/game/${gameId}`);
-      } else {
+      if (!result.success || !result.data?.workflowId) {
         toast.error(result.error || 'Failed to create server');
+        setIsCreating(false);
+        setCreationStartTime(null);
+        return;
       }
-    } catch {
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const listResult = await listServersAction(gameId);
+
+          if (!listResult.success) {
+            clearInterval(pollInterval);
+            toast.error(listResult.error || 'Failed to check server status');
+            setIsCreating(false);
+            setCreationStartTime(null);
+            return;
+          }
+
+          const servers = listResult.data || [];
+          const serverExists = servers.some((service) => service.name === serverName);
+
+          if (serverExists) {
+            clearInterval(pollInterval);
+            toast.success('Server created successfully!');
+            setIsCreating(false);
+            setCreationStartTime(null);
+            router.push(`/game/${gameId}`);
+          }
+        } catch (pollError) {
+          clearInterval(pollInterval);
+          toast.error('Failed to check server status');
+          setIsCreating(false);
+          setCreationStartTime(null);
+        }
+      }, 3000);
+
+    } catch (error) {
       toast.error('Failed to create server');
-    } finally {
       setIsCreating(false);
       setCreationStartTime(null);
     }

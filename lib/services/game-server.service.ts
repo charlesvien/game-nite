@@ -59,4 +59,8 @@ export class GameServerService {
   async getServerById(serviceId: string): Promise<RailwayServiceModel | null> {
     return await this.railwayRepository.getServiceById(serviceId);
   }
+
+  async getWorkflowStatus(workflowId: string): Promise<{ status: string; error: string }> {
+    return await this.railwayRepository.getWorkflowStatus(workflowId);
+  }
 }
