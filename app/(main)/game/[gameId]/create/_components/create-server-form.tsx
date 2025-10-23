@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,10 @@ export default function CreateServerForm({ gameId, game }: CreateServerFormProps
     return vars;
   });
 
+  // Refs to track polling and prevent race conditions when creating multiple servers
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const currentServerNameRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!isCreating) {
       return;
@@ -40,6 +44,16 @@ export default function CreateServerForm({ gameId, game }: CreateServerFormProps
     return () => clearInterval(interval);
   }, [isCreating]);
 
+  // Cleanup polling interval on component unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -48,10 +62,19 @@ export default function CreateServerForm({ gameId, game }: CreateServerFormProps
       return;
     }
 
+    // Clear any existing polling interval before starting a new one
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+
     const now = Date.now();
     setIsCreating(true);
     setCreationStartTime(now);
     setCurrentTime(now);
+
+    // Track which server we're currently creating
+    currentServerNameRef.current = serverName;
 
     try {
       const result = await createServerAction(gameId, serverName, envVars);
@@ -60,42 +83,57 @@ export default function CreateServerForm({ gameId, game }: CreateServerFormProps
         toast.error(result.error || 'Failed to create server');
         setIsCreating(false);
         setCreationStartTime(null);
+        currentServerNameRef.current = null;
         return;
       }
 
-      const pollInterval = setInterval(async () => {
+      pollIntervalRef.current = setInterval(async () => {
         try {
           const listResult = await listServersAction(gameId);
 
           if (!listResult.success) {
-            clearInterval(pollInterval);
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
             toast.error(listResult.error || 'Failed to check server status');
             setIsCreating(false);
             setCreationStartTime(null);
+            currentServerNameRef.current = null;
             return;
           }
 
           const servers = listResult.data || [];
-          const serverExists = servers.some((service) => service.name === serverName);
+          const serverExists = servers.some((service) => service.name === currentServerNameRef.current);
 
-          if (serverExists) {
-            clearInterval(pollInterval);
+          // Only redirect if this is still the server we're waiting for
+          if (serverExists && currentServerNameRef.current === serverName) {
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
             toast.success('Server created successfully!');
             setIsCreating(false);
             setCreationStartTime(null);
+            currentServerNameRef.current = null;
             router.push(`/game/${gameId}`);
           }
         } catch {
-          clearInterval(pollInterval);
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
           toast.error('Failed to check server status');
           setIsCreating(false);
           setCreationStartTime(null);
+          currentServerNameRef.current = null;
         }
       }, 3000);
     } catch {
       toast.error('Failed to create server');
       setIsCreating(false);
       setCreationStartTime(null);
+      currentServerNameRef.current = null;
     }
   }
 
