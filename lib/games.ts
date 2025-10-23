@@ -92,6 +92,8 @@ export function getGameConfig(gameId: string): GameConfig | undefined {
 
 export function getGameConfigBySource(source: ServiceSource): GameConfig | undefined {
   return Object.values(GAMES).find(
-    (game) => game.source.image === source.image || game.source.repo === source.repo,
+    (game) =>
+      (game.source.image && source.image && game.source.image === source.image) ||
+      (game.source.repo && source.repo && game.source.repo === source.repo)
   );
 }

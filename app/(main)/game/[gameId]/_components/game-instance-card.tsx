@@ -104,7 +104,7 @@ export default function GameInstanceCard({
       if (statusUpdatedAt) {
         const date = new Date(statusUpdatedAt);
         if (!isNaN(date.getTime())) {
-          elapsed = Math.floor((now - date.getTime()) / 1000);
+          elapsed = Math.max(0, Math.floor((now - date.getTime()) / 1000));
         }
       }
       const min = Math.floor(elapsed / 60);
