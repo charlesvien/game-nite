@@ -26,8 +26,4 @@ export class GameCatalogService {
   getGameById(id: string): Game | null {
     return this.games.get(id) || null;
   }
-
-  deployableGames(): Game[] {
-    return this.getAllGames().filter((game) => game.canDeploy());
-  }
 }

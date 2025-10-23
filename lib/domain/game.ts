@@ -13,24 +13,22 @@ export class Game {
     public readonly volumeMountPath?: string,
   ) {}
 
-  get dockerImage(): string | undefined {
-    return this.source.image;
-  }
-
-  hasDockerImage(): boolean {
-    return !!this.source.image;
-  }
-
-  canDeploy(): boolean {
-    return this.hasDockerImage();
-  }
-
-  getEnvironmentVariablesWithPort(): Record<string, string> {
+  getEnvironmentVariablesWithPort(
+    customVars?: Record<string, string>,
+  ): Record<string, string> {
     const vars: Record<string, string> = {};
 
     this.environmentVariables?.forEach((envVar) => {
       vars[envVar.key] = envVar.value;
     });
+
+    if (customVars) {
+      Object.entries(customVars).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+          vars[key] = value;
+        }
+      });
+    }
 
     if (!vars.PORT) {
       vars.PORT = this.defaultPort.toString();

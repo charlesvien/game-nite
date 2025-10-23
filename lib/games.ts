@@ -32,6 +32,11 @@ export const GAMES: Record<string, GameConfig> = {
       { key: 'EULA', value: 'TRUE', description: 'Accept Minecraft EULA' },
       { key: 'TYPE', value: 'PAPER', description: 'Server type' },
       { key: 'VERSION', value: 'LATEST', description: 'Minecraft version' },
+      {
+        key: 'MOTD',
+        value: 'Server deployed on Railway!',
+        description: 'Message of the day',
+      },
     ],
     defaultPort: 25565,
     volumeMountPath: '/data',
@@ -79,25 +84,6 @@ export const GAMES: Record<string, GameConfig> = {
     defaultPort: 34197,
     volumeMountPath: '/factorio',
   },
-  // ark: {
-  //   id: 'ark',
-  //   name: 'ARK: Survival',
-  //   color: 'bg-blue-600',
-  //   image: '/games/ark-survival.jpg',
-  //   description: 'Tame dinos, die to dinos',
-  //   source: {
-  //     image: 'thmhoag/arkserver',
-  //   },
-  //   environmentVariables: [
-  //     { key: 'SESSIONNAME', value: 'My ARK Server', description: 'Server session name' },
-  //     { key: 'SERVERMAP', value: 'TheIsland', description: 'Map name' },
-  //     { key: 'SERVERPASSWORD', value: '', description: 'Server password (optional)' },
-  //     { key: 'ADMINPASSWORD', value: 'admin123', description: 'Admin password' },
-  //     { key: 'MAX_PLAYERS', value: '70', description: 'Max players' },
-  //   ],
-  //   defaultPort: 7777,
-  //   volumeMountPath: '/ark',
-  // },
 };
 
 export function getGameConfig(gameId: string): GameConfig | undefined {

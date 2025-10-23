@@ -64,6 +64,7 @@ export async function listServersAction(
 export async function createServerAction(
   gameId: string,
   serverName: string,
+  customEnvVars?: Record<string, string>,
 ): Promise<ActionResult<{ workflowId: string }>> {
   try {
     const gameCatalog = getGameCatalogService();
@@ -74,7 +75,11 @@ export async function createServerAction(
       return { success: false, error: 'Game not found' };
     }
 
-    const workflowId: string = await gameServer.deployTemplate(game, serverName);
+    const workflowId: string = await gameServer.deployTemplate(
+      game,
+      serverName,
+      customEnvVars,
+    );
 
     revalidatePath(`/game/${gameId}`);
 

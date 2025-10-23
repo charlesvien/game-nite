@@ -4,19 +4,29 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { createServerAction, listServersAction } from '@/actions/game-server.actions';
+import { GameConfig } from '@/lib/games';
 
 interface CreateServerFormProps {
   gameId: string;
+  game: GameConfig;
 }
 
-export default function CreateServerForm({ gameId }: CreateServerFormProps) {
+export default function CreateServerForm({ gameId, game }: CreateServerFormProps) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [creationStartTime, setCreationStartTime] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [serverName, setServerName] = useState('');
+  const [showEnvVars, setShowEnvVars] = useState(false);
+  const [envVars, setEnvVars] = useState<Record<string, string>>(() => {
+    const vars: Record<string, string> = {};
+    game.environmentVariables?.forEach((envVar) => {
+      vars[envVar.key] = envVar.value;
+    });
+    return vars;
+  });
 
   useEffect(() => {
     if (!isCreating) {
@@ -44,7 +54,7 @@ export default function CreateServerForm({ gameId }: CreateServerFormProps) {
     setCurrentTime(now);
 
     try {
-      const result = await createServerAction(gameId, serverName);
+      const result = await createServerAction(gameId, serverName, envVars);
 
       if (!result.success || !result.data?.workflowId) {
         toast.error(result.error || 'Failed to create server');
@@ -123,6 +133,54 @@ export default function CreateServerForm({ gameId }: CreateServerFormProps) {
             disabled={isCreating}
           />
         </div>
+
+        {game.environmentVariables && game.environmentVariables.length > 0 && (
+          <div className="border border-slate-700 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowEnvVars(!showEnvVars)}
+              className="w-full px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-between transition-colors"
+            >
+              <span className="font-medium">Environment Variables (Optional)</span>
+              {showEnvVars ? (
+                <ChevronUp className="h-5 w-5" />
+              ) : (
+                <ChevronDown className="h-5 w-5" />
+              )}
+            </button>
+
+            {showEnvVars && (
+              <div className="p-4 space-y-4 bg-slate-900">
+                {game.environmentVariables.map((envVar) => (
+                  <div key={envVar.key}>
+                    <label
+                      htmlFor={envVar.key}
+                      className="block text-sm font-medium text-slate-300 mb-2"
+                    >
+                      {envVar.key}
+                      {envVar.description && (
+                        <span className="text-slate-500 font-normal ml-2">
+                          - {envVar.description}
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      id={envVar.key}
+                      type="text"
+                      value={envVars[envVar.key] || ''}
+                      onChange={(e) =>
+                        setEnvVars({ ...envVars, [envVar.key]: e.target.value })
+                      }
+                      placeholder={envVar.value}
+                      className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      disabled={isCreating}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <Button
           type="submit"

@@ -38,7 +38,7 @@ export default async function CreateServerPage({ params }: PageProps) {
             <p className="text-slate-400">Deploy a new {game.name} server on Railway</p>
           </div>
 
-          <CreateServerForm gameId={gameId} />
+          <CreateServerForm gameId={gameId} game={game} />
 
           <Footer />
         </div>

@@ -27,9 +27,14 @@ import Link from 'next/link';
 interface GameInstanceCardProps {
   service: SerializedService;
   gameId: string;
+  onDeleted?: (serviceId: string) => void;
 }
 
-export default function GameInstanceCard({ service, gameId }: GameInstanceCardProps) {
+export default function GameInstanceCard({
+  service,
+  gameId,
+  onDeleted,
+}: GameInstanceCardProps) {
   const router = useRouter();
   const [isRestarting, setIsRestarting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -150,6 +155,7 @@ export default function GameInstanceCard({ service, gameId }: GameInstanceCardPr
       const result = await deleteServerAction(service.id, gameId);
       if (result.success) {
         toast.success('Server has been deleted');
+        onDeleted?.(service.id);
         router.refresh();
       } else {
         toast.error(result.error || 'Failed to delete server');

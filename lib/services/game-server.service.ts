@@ -31,13 +31,17 @@ export class GameServerService {
     return filtered;
   }
 
-  async deployTemplate(game: Game, serviceName: string): Promise<string> {
+  async deployTemplate(
+    game: Game,
+    serviceName: string,
+    customEnvVars?: Record<string, string>,
+  ): Promise<string> {
     try {
       return await this.railwayRepository.deployTemplate({
         serviceName: serviceName,
         source: game.source,
         tcpProxyApplicationPort: game.defaultPort,
-        variables: game.getEnvironmentVariablesWithPort(),
+        variables: game.getEnvironmentVariablesWithPort(customEnvVars),
         volumeMountPath: game.volumeMountPath,
       });
     } catch (error) {
