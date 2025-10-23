@@ -75,6 +75,18 @@ export async function createServerAction(
       return { success: false, error: 'Game not found' };
     }
 
+    const existingServers = await gameServer.listServers(gameId);
+    const duplicateServer = existingServers.find(
+      (server) => server.name.toLowerCase() === serverName.toLowerCase(),
+    );
+
+    if (duplicateServer) {
+      return {
+        success: false,
+        error: `A server with the name "${serverName}" already exists. Please choose a different name.`,
+      };
+    }
+
     const workflowId: string = await gameServer.deployTemplate(
       game,
       serverName,
