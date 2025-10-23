@@ -1,5 +1,9 @@
 import { getGameConfigBySource } from '../games';
 import { ServiceSource } from '../repositories/railway.repository.interface';
+import {
+  DeploymentStatus,
+  DeploymentStatusDisplay,
+} from '../constants/deployment-status';
 
 export interface TcpProxy {
   domain: string;
@@ -30,25 +34,51 @@ export class RailwayServiceModel {
     return `${baseUrl}/share/${this.id}`;
   }
 
+  /**
+   * Returns true if the service is currently online and operational
+   */
+  isOnline(): boolean {
+    return this.deploymentStatus?.toUpperCase() === DeploymentStatus.SUCCESS;
+  }
+
+  /**
+   * Returns true if the service is currently building or deploying
+   */
+  isDeploying(): boolean {
+    const status = this.deploymentStatus?.toUpperCase();
+    return status === DeploymentStatus.BUILDING || status === DeploymentStatus.DEPLOYING;
+  }
+
+  /**
+   * Returns true if the service has crashed or failed
+   */
+  hasFailed(): boolean {
+    const status = this.deploymentStatus?.toUpperCase();
+    return status === DeploymentStatus.CRASHED || status === DeploymentStatus.FAILED;
+  }
+
+  /**
+   * Returns true if the service has been removed
+   */
+  isRemoved(): boolean {
+    return this.deploymentStatus?.toUpperCase() === DeploymentStatus.REMOVED;
+  }
+
+  /**
+   * Gets the display information for the current deployment status
+   */
   getStatusDisplay(): { label: string; color: string } {
     if (!this.deploymentStatus) {
       return { label: 'Unknown', color: 'bg-gray-500' };
     }
 
-    switch (this.deploymentStatus.toUpperCase()) {
-      case 'SUCCESS':
-        return { label: 'Online', color: 'bg-green-500' };
-      case 'BUILDING':
-      case 'DEPLOYING':
-        return { label: 'Deploying', color: 'bg-yellow-500' };
-      case 'CRASHED':
-      case 'FAILED':
-        return { label: 'Crashed', color: 'bg-red-500' };
-      case 'REMOVED':
-        return { label: 'Removed', color: 'bg-gray-500' };
-      default:
-        return { label: this.deploymentStatus, color: 'bg-blue-500' };
+    const statusUpper = this.deploymentStatus.toUpperCase() as DeploymentStatus;
+
+    if (statusUpper in DeploymentStatusDisplay) {
+      return DeploymentStatusDisplay[statusUpper];
     }
+
+    return { label: this.deploymentStatus, color: 'bg-blue-500' };
   }
 
   static fromRailwayData(data: {

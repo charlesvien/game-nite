@@ -5,28 +5,27 @@ import type { IRailwayRepository } from '../repositories/railway.repository.inte
 import { Game } from '../domain/game';
 import { RailwayServiceModel } from '../domain/service';
 import { TemplateDeploymentError } from '../errors/railway-errors';
-import { getGameCatalogService } from '../di/container';
+import type { GameCatalogService } from './game-catalog.service';
 
 @injectable()
 export class GameServerService {
   constructor(
     @inject(TYPES.IRailwayRepository)
     private readonly railwayRepository: IRailwayRepository,
+    @inject(TYPES.GameCatalogService)
+    private readonly gameCatalog: GameCatalogService,
   ) {}
 
   async listServers(gameId: string): Promise<RailwayServiceModel[]> {
     const allServices = await this.railwayRepository.getServices();
 
-    const gameCatalog = getGameCatalogService();
-    const game = gameCatalog.getGameById(gameId);
+    const game = this.gameCatalog.getGameById(gameId);
 
     if (!game) {
       return [];
     }
 
-    const filtered = allServices.filter(
-      (service) => service.source.image === game.source.image,
-    );
+    const filtered = allServices.filter((service) => game.matchesSource(service.source));
 
     return filtered;
   }

@@ -7,6 +7,7 @@ import {
 } from './railway.repository.interface';
 import { RailwayServiceModel, TcpProxy } from '../domain/service';
 import { RailwayError } from '../errors/railway-errors';
+import { ErrorCodes } from '../constants/error-codes';
 
 // ====================
 // Service operations
@@ -163,29 +164,31 @@ export class RailwayRepository implements IRailwayRepository {
 
   async getServices(): Promise<RailwayServiceModel[]> {
     try {
+      type ServiceEdge = {
+        node: {
+          id: string;
+          name: string;
+          createdAt: string;
+          updatedAt: string;
+          deployments: {
+            edges: Array<{
+              node: {
+                status: string;
+                statusUpdatedAt: string;
+                staticUrl: string;
+                meta: Record<string, unknown>;
+              };
+            }>;
+          };
+        };
+      };
+
       const { data } = await this.client.query<{
         project: {
           id: string;
           name: string;
           services: {
-            edges: Array<{
-              node: {
-                id: string;
-                name: string;
-                createdAt: string;
-                updatedAt: string;
-                deployments: {
-                  edges: Array<{
-                    node: {
-                      status: string;
-                      statusUpdatedAt: Date;
-                      staticUrl: string;
-                      meta: Record<string, unknown>;
-                    };
-                  }>;
-                };
-              };
-            }>;
+            edges: Array<ServiceEdge>;
           };
         };
       }>({
@@ -202,10 +205,10 @@ export class RailwayRepository implements IRailwayRepository {
         return [];
       }
 
-      return data.project.services.edges.map((edge) => {
+      return data.project.services.edges.map((edge: ServiceEdge) => {
         const deploymentStatus: string | undefined =
           edge.node.deployments?.edges?.[0]?.node?.status;
-        const statusUpdatedAt: Date | undefined =
+        const statusUpdatedAt: string | undefined =
           edge.node.deployments?.edges?.[0]?.node?.statusUpdatedAt;
         const image: string | undefined = edge.node.deployments?.edges?.[0]?.node?.meta
           ?.image as string | undefined;
@@ -231,7 +234,7 @@ export class RailwayRepository implements IRailwayRepository {
         `Failed to fetch services: ${
           error instanceof Error ? error.message : 'Unknown error'
         }`,
-        'FETCH_FAILED',
+        ErrorCodes.FETCH_FAILED,
       );
     }
   }
@@ -270,7 +273,7 @@ export class RailwayRepository implements IRailwayRepository {
         `Failed to fetch TCP proxies: ${
           error instanceof Error ? error.message : 'Unknown error'
         }`,
-        'FETCH_FAILED',
+        ErrorCodes.FETCH_FAILED,
       );
     }
   }
@@ -297,7 +300,7 @@ export class RailwayRepository implements IRailwayRepository {
       console.error('[RailwayRepository] Error fetching workflow status:', error);
       throw new RailwayError(
         `Failed to fetch workflow status: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'FETCH_FAILED',
+        ErrorCodes.FETCH_FAILED,
       );
     }
   }
@@ -330,7 +333,7 @@ export class RailwayRepository implements IRailwayRepository {
       console.error('[RailwayRepository] Error deploying template:', error);
       throw new RailwayError(
         `Failed to deploy template: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'DEPLOY_FAILED',
+        ErrorCodes.DEPLOY_FAILED,
       );
     }
   }
@@ -339,81 +342,85 @@ export class RailwayRepository implements IRailwayRepository {
     try {
       console.log(`[RailwayRepository] Attempting to delete service ${serviceId}`);
 
-      const volumesToDelete: Array<{ volumeId: string; serviceId: string }> = [];
-      try {
-        const volumesData = await this.client.query<{
-          project: {
-            id: string;
-            volumes: {
-              edges: Array<{
-                node: {
-                  volumeInstances: {
-                    edges: Array<{
-                      node: {
-                        serviceId: string;
-                        volumeId: string;
-                      };
-                    }>;
-                  };
-                };
-              }>;
-            };
-          };
-        }>({
-          query: GET_PROJECT_VOLUMES_QUERY,
-          variables: {
-            projectId: this.projectId,
-          },
-          fetchPolicy: 'no-cache',
-        });
-
-        const volumes = volumesData?.data?.project?.volumes?.edges || [];
-        console.log('[RailwayRepository] Found volumes for project:', {
-          projectId: this.projectId,
-          volumes: volumes.length,
-        });
-
-        for (const volumeEdge of volumes) {
-          const volumeId = volumeEdge.node.volumeInstances.edges[0].node.volumeId;
-          const volumeServiceId = volumeEdge.node.volumeInstances.edges[0].node.serviceId;
-          if (volumeServiceId === serviceId) {
-            volumesToDelete.push({ volumeId, serviceId: volumeServiceId });
-          }
-        }
-        console.log(
-          `[RailwayRepository] Found ${volumesToDelete.length} volumes to delete for service ${serviceId}`,
-        );
-      } catch (volumeQueryError) {
-        console.warn('[RailwayRepository] Could not query volumes:', volumeQueryError);
-      }
-
       const result = await this.client.mutate({
         mutation: DELETE_SERVICE_MUTATION,
-        variables: { serviceId: serviceId },
+        variables: { serviceId },
       });
       console.log(`[RailwayRepository] Deleted service ${serviceId}`, result);
 
-      if (volumesToDelete.length > 0) {
-        console.log(`[RailwayRepository] Deleting ${volumesToDelete.length} volumes`);
-        for (const volume of volumesToDelete) {
-          try {
-            await this.client.mutate({
-              mutation: DELETE_VOLUME_MUTATION,
-              variables: { volumeId: volume.volumeId },
-            });
-            console.log(`[RailwayRepository] Deleted volume ${volume.volumeId}`);
-          } catch (volumeError) {
-            console.error(
-              `[RailwayRepository] Failed to delete volume ${volume.volumeId}:`,
-              volumeError,
-            );
-          }
-        }
-      }
+      await this.deleteVolumesForService(serviceId);
     } catch (error) {
       console.error('[RailwayRepository] Error deleting service:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
-      throw new RailwayError(`Failed to delete service: ${message}`, 'DELETE_FAILED');
+      throw new RailwayError(
+        `Failed to delete service: ${message}`,
+        ErrorCodes.DELETE_FAILED,
+      );
+    }
+  }
+
+  private async deleteVolumesForService(serviceId: string): Promise<void> {
+    try {
+      const { data } = await this.client.query<{
+        project: {
+          volumes: {
+            edges: Array<{
+              node: {
+                volumeInstances: {
+                  edges: Array<{
+                    node: {
+                      serviceId: string;
+                      volumeId: string;
+                    };
+                  }>;
+                };
+              };
+            }>;
+          };
+        };
+      }>({
+        query: GET_PROJECT_VOLUMES_QUERY,
+        variables: { projectId: this.projectId },
+        fetchPolicy: 'no-cache',
+      });
+
+      const volumes = data?.project?.volumes?.edges || [];
+      const volumesToDelete = volumes
+        .filter(
+          (volumeEdge) =>
+            volumeEdge.node.volumeInstances.edges[0]?.node.serviceId === serviceId,
+        )
+        .map((volumeEdge) => volumeEdge.node.volumeInstances.edges[0].node.volumeId);
+
+      if (volumesToDelete.length === 0) {
+        console.log(`[RailwayRepository] No volumes to delete for service ${serviceId}`);
+        return;
+      }
+
+      console.log(
+        `[RailwayRepository] Deleting ${volumesToDelete.length} volumes for service ${serviceId}`,
+      );
+
+      // Delete all volumes in parallel (there should only be one volume per service)
+      await Promise.allSettled(
+        volumesToDelete.map((volumeId) =>
+          this.client
+            .mutate({
+              mutation: DELETE_VOLUME_MUTATION,
+              variables: { volumeId },
+            })
+            .then(() => console.log(`[RailwayRepository] Deleted volume ${volumeId}`))
+            .catch((error) =>
+              console.error(
+                `[RailwayRepository] Failed to delete volume ${volumeId}:`,
+                error,
+              ),
+            ),
+        ),
+      );
+    } catch (error) {
+      console.warn('[RailwayRepository] Could not query/delete volumes:', error);
+      // Don't throw - volume deletion is best-effort cleanup
     }
   }
 
@@ -428,7 +435,10 @@ export class RailwayRepository implements IRailwayRepository {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      throw new RailwayError(`Failed to restart service: ${message}`, 'RESTART_FAILED');
+      throw new RailwayError(
+        `Failed to restart service: ${message}`,
+        ErrorCodes.RESTART_FAILED,
+      );
     }
   }
 }
