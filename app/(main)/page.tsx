@@ -3,11 +3,15 @@ import Image from 'next/image';
 import { Gamepad2 } from 'lucide-react';
 import { GAMES } from '@/lib/games';
 import Footer from '@/components/footer';
+import { UserMenu } from '@/components/user-menu';
 
 export default function Page() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="container mx-auto px-4 py-16">
+        <div className="absolute top-4 right-4">
+          <UserMenu />
+        </div>
         <div className="text-center mb-16">
           <div className="flex items-center justify-center mb-4">
             <Gamepad2 className="h-12 w-12 text-purple-500 mr-3" />

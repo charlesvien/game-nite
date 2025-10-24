@@ -37,3 +37,7 @@ yarn-error.log*
 .DS_Store
 *.pem
 .worker-next
+
+# Authentication database
+auth.db
+auth.db-*

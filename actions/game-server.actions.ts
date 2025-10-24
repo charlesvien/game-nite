@@ -7,6 +7,7 @@ import {
   ServiceCreationError,
   TemplateNotFoundError,
 } from '@/lib/errors/railway-errors';
+import { requireAuth } from '@/lib/auth-utils';
 
 interface ActionResult<T = void> {
   success: boolean;
@@ -33,6 +34,7 @@ export async function listServersAction(
   gameId: string,
 ): Promise<ActionResult<SerializedService[]>> {
   try {
+    await requireAuth();
     const gameServer = getGameServerService();
     const services = await gameServer.listServers(gameId);
 
@@ -54,6 +56,9 @@ export async function listServersAction(
     };
   } catch (error) {
     console.error('[listServersAction] Error:', error);
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return { success: false, error: 'Authentication required' };
+    }
     if (error instanceof RailwayError) {
       return { success: false, error: error.message };
     }
@@ -67,6 +72,7 @@ export async function createServerAction(
   customEnvVars?: Record<string, string>,
 ): Promise<ActionResult<{ workflowId: string }>> {
   try {
+    await requireAuth();
     const gameCatalog = getGameCatalogService();
     const gameServer = getGameServerService();
 
@@ -102,6 +108,9 @@ export async function createServerAction(
       },
     };
   } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return { success: false, error: 'Authentication required' };
+    }
     if (error instanceof TemplateNotFoundError) {
       return { success: false, error: 'Template not configured for this game' };
     }
@@ -120,6 +129,7 @@ export async function restartServerAction(
   gameId: string,
 ): Promise<ActionResult> {
   try {
+    await requireAuth();
     const gameServer = getGameServerService();
     await gameServer.restartServer(serviceId);
 
@@ -127,6 +137,9 @@ export async function restartServerAction(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return { success: false, error: 'Authentication required' };
+    }
     if (error instanceof RailwayError) {
       return { success: false, error: error.message };
     }
@@ -139,6 +152,7 @@ export async function deleteServerAction(
   gameId: string,
 ): Promise<ActionResult> {
   try {
+    await requireAuth();
     const gameServer = getGameServerService();
     await gameServer.deleteServer(serviceId);
 
@@ -146,6 +160,9 @@ export async function deleteServerAction(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return { success: false, error: 'Authentication required' };
+    }
     if (error instanceof RailwayError) {
       return { success: false, error: error.message };
     }
@@ -157,6 +174,7 @@ export async function getWorkflowStatusAction(
   workflowId: string,
 ): Promise<ActionResult<{ status: string; error: string }>> {
   try {
+    await requireAuth();
     const gameServer = getGameServerService();
     const workflowStatus = await gameServer.getWorkflowStatus(workflowId);
 
@@ -165,6 +183,9 @@ export async function getWorkflowStatusAction(
       data: workflowStatus,
     };
   } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return { success: false, error: 'Authentication required' };
+    }
     if (error instanceof RailwayError) {
       return { success: false, error: error.message };
     }
