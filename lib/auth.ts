@@ -11,9 +11,11 @@ export const auth = betterAuth({
     provider: 'sqlite',
     db: client as unknown as any, // eslint-disable-line @typescript-eslint/no-explicit-any
   },
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: false,
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+    },
   },
   secret: process.env.BETTER_AUTH_SECRET || 'default-secret-change-in-production',
   trustedOrigins: [process.env.BETTER_AUTH_URL || 'http://localhost:3000'],
