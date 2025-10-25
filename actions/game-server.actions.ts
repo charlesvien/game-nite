@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { auth } from '@/auth';
 import { getGameServerService, getGameCatalogService } from '@/lib/di/container';
 import {
   RailwayError,
@@ -32,6 +33,11 @@ export interface SerializedService {
 export async function listServersAction(
   gameId: string,
 ): Promise<ActionResult<SerializedService[]>> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
   try {
     const gameServer = getGameServerService();
     const services = await gameServer.listServers(gameId);
@@ -66,6 +72,11 @@ export async function createServerAction(
   serverName: string,
   customEnvVars?: Record<string, string>,
 ): Promise<ActionResult<{ workflowId: string }>> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
   try {
     const gameCatalog = getGameCatalogService();
     const gameServer = getGameServerService();
@@ -119,6 +130,11 @@ export async function restartServerAction(
   serviceId: string,
   gameId: string,
 ): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
   try {
     const gameServer = getGameServerService();
     await gameServer.restartServer(serviceId);
@@ -138,6 +154,11 @@ export async function deleteServerAction(
   serviceId: string,
   gameId: string,
 ): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
   try {
     const gameServer = getGameServerService();
     await gameServer.deleteServer(serviceId);
@@ -156,6 +177,11 @@ export async function deleteServerAction(
 export async function getWorkflowStatusAction(
   workflowId: string,
 ): Promise<ActionResult<{ status: string; error: string }>> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
   try {
     const gameServer = getGameServerService();
     const workflowStatus = await gameServer.getWorkflowStatus(workflowId);
